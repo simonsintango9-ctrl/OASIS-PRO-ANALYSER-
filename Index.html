@@ -75,20 +75,25 @@
             </h1>
           </div>
           <p class="text-[10px] font-semibold tracking-widest uppercase text-slate-400 dark:text-slate-400">
-            ANALYSIS TOOL
+            OAUTH 2.0 CONNECTED
           </p>
         </div>
       </div>
 
-      <!-- Right Controls: Live Status Dot, Theme Toggle, Quick Settings -->
+      <!-- Right Controls: OAuth Login, Status Dot, Theme Toggle -->
       <div class="flex items-center gap-2 sm:gap-2.5 shrink-0">
+        <!-- OAuth Connect Button -->
+        <button onclick="app.handleConnectLiveClicks()" class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold shadow-sm transition">
+          <span>Deriv Login</span>
+        </button>
+
         <!-- Connection Badge -->
         <button id="headerConnBtn" onclick="app.forceReconnect()" title="Click to reconnect Deriv stream" class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-2xs text-xs font-medium text-slate-600 dark:text-slate-300 hover:border-emerald-400 transition">
           <span id="connDot" class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse-dot"></span>
           <span id="connLabel" class="hidden sm:inline">Connecting...</span>
         </button>
 
-        <!-- Theme Toggle (Moon / Sun) -->
+        <!-- Theme Toggle -->
         <button id="themeToggleBtn" onclick="app.toggleTheme()" aria-label="Toggle Light/Dark Mode" class="w-9 h-9 rounded-full bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 shadow-2xs transition">
           <svg id="moonIcon" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
@@ -110,7 +115,7 @@
         <button onclick="app.switchTab('settings')" aria-label="Open Settings" class="w-9 h-9 rounded-full bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 shadow-2xs transition">
           <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="3" />
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06-.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
           </svg>
         </button>
       </div>
@@ -609,19 +614,19 @@
       <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 p-4 sm:p-5 shadow-2xs space-y-4">
         <div>
           <h2 class="text-base font-extrabold text-slate-900 dark:text-white">OISIS Pro Analyser Configuration</h2>
-          <p class="text-xs text-slate-400 mt-0.5">Real-time Deriv WebSocket v3 connection & quantitative signal thresholds</p>
+          <p class="text-xs text-slate-400 mt-0.5">Real-time Deriv WebSocket v3 connection & OAuth 2.0 Web Authentication</p>
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Deriv App ID</label>
-            <input id="settingAppId" type="text" value="3496" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono-num text-sm focus:outline-none focus:border-emerald-500" />
-            <p class="text-[11px] text-slate-400 mt-1">Default public Deriv App ID: 3496</p>
+            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Deriv App ID (OAuth 2.0)</label>
+            <input id="settingAppId" type="text" value="34zhtk9vyGVEUjL5GVa9" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono-num text-sm focus:outline-none focus:border-emerald-500" />
+            <p class="text-[11px] text-slate-400 mt-1">Your registered Deriv App ID</p>
           </div>
           <div>
-            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Optional API Token (RAM Only)</label>
-            <input id="settingApiToken" type="password" placeholder="Optional read-only token" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm focus:outline-none focus:border-emerald-500" />
-            <p class="text-[11px] text-slate-400 mt-1">Never persisted to localStorage or cookies.</p>
+            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">OAuth 2.0 API Token</label>
+            <input id="settingApiToken" type="password" placeholder="Populated via Deriv Login or manual entry" class="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm focus:outline-none focus:border-emerald-500" />
+            <p class="text-[11px] text-slate-400 mt-1">Retrieved securely via Deriv OAuth web redirect.</p>
           </div>
           <div>
             <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Minimum Sample Ticks for Signals</label>
@@ -637,8 +642,11 @@
           <button onclick="app.applySettings()" class="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs sm:text-sm shadow-sm transition">
             Save & Reconnect Stream
           </button>
+          <button onclick="app.handleConnectLiveClicks()" class="px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs sm:text-sm shadow-sm transition">
+            Login via Deriv OAuth 2.0
+          </button>
           <span id="authStatusText" class="text-xs font-medium text-slate-500 dark:text-slate-400">
-            Mode: Public Market Stream (No Token)
+            Mode: Public Market Stream (Not Logged In)
           </span>
         </div>
       </div>
@@ -685,7 +693,7 @@
       <button onclick="app.switchTab('settings')" id="nav-settings" class="nav-item flex flex-col items-center justify-center py-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition">
         <svg class="w-5 h-5 mb-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1">
           <circle cx="12" cy="12" r="3" />
-          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l.06-.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1 z" />
         </svg>
         <span class="text-[10px] font-semibold">Settings</span>
       </button>
@@ -708,7 +716,7 @@
 
     class OISISAnalyserApp {
       constructor() {
-        this.appId = '3496';
+        this.appId = '34zhtk9vyGVEUjL5gVa9';
         this.apiToken = '';
         this.ws = null;
         this.reconnectTimer = null;
@@ -736,7 +744,6 @@
         this.pendingSignals = [];
         this.gradedSignals = [];
 
-        // Performance Optimization State
         this._rafPending = false;
         this._latestLiveFlag = false;
         this.canvasLogicalWidth = 0;
@@ -744,6 +751,14 @@
       }
 
       init() {
+        // Parse OAuth 2.0 redirect parameters from URL hash
+        this.parseOAuthHash();
+
+        document.getElementById('settingAppId').value = this.appId;
+        if (this.apiToken) {
+          document.getElementById('settingApiToken').value = this.apiToken;
+        }
+
         this.renderDigitSelectorButtons();
         this.renderMarketsDirectory();
         this.updateMarketLabels();
@@ -755,6 +770,30 @@
             this.renderPriceCanvas();
           }
         });
+      }
+
+      /* -------------------- OAUTH 2.0 WEB AUTHENTICATION -------------------- */
+      parseOAuthHash() {
+        const hash = window.location.hash.substring(1);
+        if (!hash) return;
+        const params = new URLSearchParams(hash);
+        // Deriv OAuth returns token1, acct1, cur1 etc.
+        const token = params.get('token1');
+        const acct = params.get('acct1');
+        if (token) {
+          this.apiToken = token;
+          this.showToast(`OAuth Authenticated: ${acct || 'Account Connected'}`);
+          // Clean hash from URL without reloading
+          history.replaceState(null, null, window.location.pathname);
+        }
+      }
+
+      handleConnectLiveClicks() {
+        // OAuth 2.0 Authorization redirect to Deriv
+        const redirectUrl = encodeURIComponent(window.location.origin + window.location.pathname);
+        const authUrl = `https://oauth.deriv.com/oauth2/authorize?app_id=${encodeURIComponent(this.appId)}&l=EN&brand=deriv`;
+        this.showToast('Redirecting to Deriv OAuth 2.0 Login...');
+        window.location.href = authUrl;
       }
 
       toggleTheme() {
@@ -888,7 +927,6 @@
       subscribeToSymbol(symbol) {
         if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
 
-        // Scoped stream unsubscription instead of global forget_all
         if (this.activeSubscriptionId) {
           this.sendWS({ forget: this.activeSubscriptionId });
           this.activeSubscriptionId = null;
@@ -912,7 +950,7 @@
 
         if (data.msg_type === 'authorize' && data.authorize) {
           document.getElementById('authStatusText').textContent =
-            `Authorized: ${data.authorize.loginid} (${data.authorize.currency || 'USD'})`;
+            `OAuth Authorized: ${data.authorize.loginid} (${data.authorize.currency || 'USD'})`;
         }
 
         if (data.msg_type === 'active_symbols' && Array.isArray(data.active_symbols)) {
@@ -1075,7 +1113,6 @@
         const lastIsEven = lastDigit % 2 === 0;
         const bayesEven = ((evenCount + 2) / (n + 4)) * 100;
         const markovEven = lastIsEven ? ((ee + 1) / (ee + eo + 2)) * 100 : ((oe + 1) / (oe + oo + 2)) * 100;
-        const markovOdd = 100 - markovEven;
         const blendedEven = 0.65 * bayesEven + 0.35 * markovEven;
         const blendedOdd = 100 - blendedEven;
 
@@ -1100,7 +1137,7 @@
 
         return {
           n, counts, digitProbs, chiSquare, hotDigit, coldDigit,
-          evenCount, oddCount, blendedEven, blendedOdd, markovEven, markovOdd,
+          evenCount, oddCount, blendedEven, blendedOdd, markovEven: markovEven, markovOdd: 100 - markovEven,
           riseCount, fallCount, flatCount, blendedRise, blendedFall, markovRise,
           overCount, underCount, equalCount, overProb, underProb, equalProb
         };
@@ -1416,7 +1453,7 @@
         `).join('');
       }
 
-      /* -------------------- ANALYSIS TAB (DOM RECYCLING) -------------------- */
+      /* -------------------- ANALYSIS TAB -------------------- */
       selectEngineTab(engineKey) {
         this.activeEngine = engineKey;
         document.querySelectorAll('.eng-tab-btn').forEach(btn => {
@@ -1621,7 +1658,7 @@
         }
       }
 
-      /* -------------------- HISTORY & AUDIT LOG RENDERERS -------------------- */
+      /* -------------------- HISTORY & AUDIT LOG -------------------- */
       renderHistoryTables() {
         const total = this.gradedSignals.length;
         const wins = this.gradedSignals.filter(s => s.won).length;
@@ -1719,13 +1756,13 @@
         const minSampleVal = parseInt(document.getElementById('settingMinSample').value, 10);
         const scanDurVal = parseInt(document.getElementById('settingScanDuration').value, 10);
 
-        this.appId = appIdVal || '3496';
+        this.appId = appIdVal || '34zhtk9vyGVEUjL5GVa9';
         this.apiToken = tokenVal;
         this.minSampleTicks = isNaN(minSampleVal) ? 30 : Math.max(10, Math.min(300, minSampleVal));
         this.scanValiditySec = isNaN(scanDurVal) ? 15 : Math.max(5, Math.min(60, scanDurVal));
 
         document.getElementById('authStatusText').textContent = this.apiToken
-          ? 'Mode: Authenticated Stream (RAM Token)'
+          ? 'Mode: OAuth Authenticated Stream'
           : 'Mode: Public Market Stream (No Token)';
 
         this.connectWebSocket();
