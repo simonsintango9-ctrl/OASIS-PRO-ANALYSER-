@@ -1,1322 +1,1615 @@
-```html
 <!DOCTYPE html>
-<html lang="en" class="light">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>OIsis Pro — Analysis Tool</title>
+  <title>OASIS-PRO-ANALYSER</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          fontFamily: {
-            sans: ['Inter', 'sans-serif'],
-            mono: ['JetBrains Mono', 'monospace'],
-          },
-          colors: {
-            mint: {
-              500: '#00a878',
-              600: '#009167',
-              100: '#e6f7f2',
-            }
-          }
-        }
-      }
-    };
-  </script>
-  <style>
-    ::-webkit-scrollbar { width: 4px; height: 4px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.4); border-radius: 9999px; }
-
-    .app-card {
-      transition: transform 0.15s ease, box-shadow 0.15s ease;
-    }
-    .scan-btn {
-      background: linear-gradient(180deg, #00b37e 0%, #009c6d 100%);
-      box-shadow: 0 2px 8px rgba(0, 168, 120, 0.25);
-    }
-    .scan-btn:hover {
-      background: linear-gradient(180deg, #00a372 0%, #008a60 100%);
-    }
-    .scan-btn:active {
-      transform: scale(0.98);
-    }
-    .pulse-live {
-      animation: pulseLive 2s infinite;
-    }
-    @keyframes pulseLive {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.45; transform: scale(0.88); }
-    }
-    canvas {
-      display: block;
-      width: 100%;
-      height: 100%;
-    }
-  </style>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
-<body class="bg-slate-200/80 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans antialiased min-h-screen flex justify-center sm:py-4">
+<body class="bg-slate-50 text-slate-900 antialiased selection:bg-rose-500 selection:text-white">
+  <div id="root"></div>
 
-  <!-- Mobile-First App Shell (max-w-[440px] matching reference aesthetic) -->
-  <div class="w-full max-w-[440px] bg-[#f4f6f9] dark:bg-[#0b101b] sm:rounded-[28px] sm:border sm:border-slate-300/90 dark:sm:border-slate-800 shadow-2xl flex flex-col min-h-screen sm:min-h-[820px] sm:max-h-[880px] overflow-hidden relative">
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useMemo, useCallback } = React;
 
-    <!-- Top App Bar -->
-    <header class="px-4 pt-4 pb-3 bg-[#f4f6f9]/95 dark:bg-[#0b101b]/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 flex items-center justify-between sticky top-0 z-30">
-      <div class="flex items-center gap-2.5">
-        <!-- Circular Emerald-Teal App Badge -->
-        <div class="w-9 h-9 rounded-full bg-[#00a878] flex items-center justify-center text-white shadow-sm shadow-emerald-600/30 shrink-0">
-          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14" />
-            <circle cx="12" cy="7" r="2.2" fill="currentColor" stroke="none"/>
-          </svg>
-        </div>
-        <div>
-          <h1 class="text-[15px] font-extrabold tracking-tight text-slate-900 dark:text-white leading-tight">OIsis Pro</h1>
-          <p class="text-[10px] font-semibold tracking-wider text-slate-400 dark:text-slate-500 uppercase">ANALYSIS TOOL</p>
-        </div>
-      </div>
+    // ======================================================
+    // 1. CONFIGURATION (PERSONAL APP ID)
+    // ======================================================
 
-      <!-- Right Status Dot, PKCE Shield & Theme Toggle -->
-      <div class="flex items-center gap-2.5">
-        <!-- Live WebSocket Status Dot -->
-        <button id="wsStatusPill" title="WebSocket Stream Status" class="flex items-center gap-1.5 px-2 py-1 rounded-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-[10px] font-mono text-slate-600 dark:text-slate-300">
-          <span id="wsLiveDot" class="w-2.5 h-2.5 rounded-full bg-[#00a878] pulse-live"></span>
-          <span id="wsLiveLabel">LIVE</span>
-        </button>
+    const WS_BASE_URL = "wss://ws.derivws.com/websockets/v3";
 
-        <!-- PKCE Auth Shield Quick Jump -->
-        <button id="headerAuthBtn" title="OAuth 2.0 + PKCE Verified" class="w-8 h-8 rounded-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-center text-[#00a878] hover:bg-slate-50 dark:hover:bg-slate-800 transition">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
-          </svg>
-        </button>
-
-        <!-- Dark / Light Mode Toggle -->
-        <button id="themeToggleBtn" title="Toggle Theme" class="w-8 h-8 rounded-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition">
-          <svg id="moonIcon" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
-          </svg>
-          <svg id="sunIcon" class="w-4 h-4 hidden text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
-          </svg>
-        </button>
-      </div>
-    </header>
-
-    <!-- Scrollable Main Content Viewport -->
-    <main class="flex-1 overflow-y-auto px-4 pt-3 pb-24 space-y-4">
-
-      <!-- Shared Select Market Header (Visible on Dashboard, Markets & Analysis) -->
-      <section id="marketSelectorBlock" class="space-y-1.5">
-        <div class="flex items-center justify-between">
-          <label for="marketSelect" class="text-[11px] font-bold tracking-wider uppercase text-slate-500 dark:text-slate-400">Select Market</label>
-          <div class="flex items-center gap-1.5 text-[11px] font-mono">
-            <span class="text-slate-400">Quote:</span>
-            <span id="liveQuoteText" class="font-bold text-slate-800 dark:text-white">---.--</span>
-            <span id="liveLastDigitBadge" class="px-1.5 py-0.2 rounded bg-[#00a878]/15 text-[#00a878] font-bold">-</span>
-          </div>
-        </div>
-
-        <!-- Dropdown Card matching screenshot -->
-        <div class="relative bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-xl px-3.5 py-2.5 shadow-sm flex items-center gap-2.5">
-          <span class="w-2.5 h-2.5 rounded-full bg-[#00a878] shrink-0"></span>
-          <select id="marketSelect" class="w-full bg-transparent text-[13px] font-semibold text-slate-800 dark:text-slate-100 focus:outline-none appearance-none cursor-pointer pr-6">
-            <option value="1HZ100V" class="dark:bg-slate-900">Volatility 100 (1s) Index</option>
-            <option value="R_100" class="dark:bg-slate-900">Volatility 100 Index</option>
-            <option value="1HZ75V" class="dark:bg-slate-900">Volatility 75 (1s) Index</option>
-            <option value="R_75" class="dark:bg-slate-900">Volatility 75 Index</option>
-            <option value="R_50" class="dark:bg-slate-900">Volatility 50 Index</option>
-            <option value="R_25" class="dark:bg-slate-900">Volatility 25 Index</option>
-            <option value="R_10" class="dark:bg-slate-900">Volatility 10 Index</option>
-          </select>
-          <svg class="w-4 h-4 text-slate-400 pointer-events-none absolute right-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
-          </svg>
-        </div>
-
-        <!-- Symbol Subtitle matching screenshot -->
-        <div class="flex items-center justify-between px-0.5 text-[11px]">
-          <span class="text-slate-400 font-medium">Symbol: <span id="symbolCodeText" class="font-mono font-semibold text-[#00a878]">1HZ100V</span></span>
-          <span class="text-slate-400 font-mono" id="sampleWindowBadge">Sample: 100 ticks</span>
-        </div>
-      </section>
-
-      <!-- =================================================================== -->
-      <!-- TAB 1: DASHBOARD VIEW (Replicating Reference Screenshot Layout)     -->
-      <!-- =================================================================== -->
-      <div id="tab-dashboard" class="space-y-4">
-
-        <!-- Section Header: DIGIT ANALYSIS -->
-        <div class="flex items-center justify-between pt-1">
-          <h2 class="text-[11px] font-bold tracking-wider uppercase text-slate-500 dark:text-slate-400">DIGIT ANALYSIS</h2>
-          <span class="text-[10px] font-mono text-[#00a878] bg-[#00a878]/10 px-2 py-0.5 rounded-full font-semibold">OIsis Quant Core</span>
-        </div>
-
-        <!-- 2x2 Grid of Crisp Analysis Cards -->
-        <div class="grid grid-cols-2 gap-3">
-
-          <!-- CARD 1: MATCHES -->
-          <div id="card-matches" class="app-card bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-3.5 shadow-sm flex flex-col justify-between min-h-[195px]">
-            <div>
-              <div class="flex items-center justify-between mb-2.5">
-                <div class="flex items-center gap-2">
-                  <span class="w-6 h-6 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 flex items-center justify-center font-mono text-xs font-bold">#</span>
-                  <span class="text-xs font-bold tracking-wide text-slate-800 dark:text-white uppercase">MATCHES</span>
-                </div>
-                <span id="dot-matches" class="w-2 h-2 rounded-full bg-[#00a878] hidden"></span>
-              </div>
-
-              <!-- Dynamic Body: Idle Market Description OR Framed Scan Result Box -->
-              <div id="body-matches">
-                <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                  Market: <span class="market-name-ref font-medium text-slate-700 dark:text-slate-300">Volatility 100 (1s) Index</span>
-                </p>
-                <p class="text-[10px] font-mono text-slate-400 mt-1.5">Target: High-Cluster Digit</p>
-              </div>
-            </div>
-
-            <button onclick="triggerCardScan('matches')" id="btn-matches" class="scan-btn w-full mt-3 py-2 px-3 rounded-xl text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition">
-              <span>⚡</span><span>Scan</span>
-            </button>
-          </div>
-
-          <!-- CARD 2: DIFFERS -->
-          <div id="card-differs" class="app-card bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-3.5 shadow-sm flex flex-col justify-between min-h-[195px]">
-            <div>
-              <div class="flex items-center justify-between mb-2.5">
-                <div class="flex items-center gap-2">
-                  <span class="w-6 h-6 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 flex items-center justify-center font-mono text-xs font-bold">#</span>
-                  <span class="text-xs font-bold tracking-wide text-slate-800 dark:text-white uppercase">DIFFERS</span>
-                </div>
-                <span id="dot-differs" class="w-2 h-2 rounded-full bg-[#00a878]"></span>
-              </div>
-
-              <div id="body-differs">
-                <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                  Market: <span class="market-name-ref font-medium text-slate-700 dark:text-slate-300">Volatility 100 (1s) Index</span>
-                </p>
-                <p class="text-[10px] font-mono text-slate-400 mt-1.5">Target: Coldest Anomaly</p>
-              </div>
-            </div>
-
-            <button onclick="triggerCardScan('differs')" id="btn-differs" class="scan-btn w-full mt-3 py-2 px-3 rounded-xl text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition">
-              <span>⚡</span><span>Scan</span>
-            </button>
-          </div>
-
-          <!-- CARD 3: EVEN -->
-          <div id="card-even" class="app-card bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-3.5 shadow-sm flex flex-col justify-between min-h-[195px]">
-            <div>
-              <div class="flex items-center justify-between mb-2.5">
-                <div class="flex items-center gap-2">
-                  <span class="w-6 h-6 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 flex items-center justify-center font-mono text-xs font-bold">#</span>
-                  <span class="text-xs font-bold tracking-wide text-slate-800 dark:text-white uppercase">EVEN</span>
-                </div>
-                <span id="dot-even" class="w-2 h-2 rounded-full bg-[#00a878]"></span>
-              </div>
-
-              <div id="body-even">
-                <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                  Market: <span class="market-name-ref font-medium text-slate-700 dark:text-slate-300">Volatility 100 (1s) Index</span>
-                </p>
-                <p class="text-[10px] font-mono text-slate-400 mt-1.5">Digits: 0, 2, 4, 6, 8</p>
-              </div>
-            </div>
-
-            <button onclick="triggerCardScan('even')" id="btn-even" class="scan-btn w-full mt-3 py-2 px-3 rounded-xl text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition">
-              <span>⚡</span><span>Scan</span>
-            </button>
-          </div>
-
-          <!-- CARD 4: ODD -->
-          <div id="card-odd" class="app-card bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-3.5 shadow-sm flex flex-col justify-between min-h-[195px]">
-            <div>
-              <div class="flex items-center justify-between mb-2.5">
-                <div class="flex items-center gap-2">
-                  <span class="w-6 h-6 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 flex items-center justify-center font-mono text-xs font-bold">#</span>
-                  <span class="text-xs font-bold tracking-wide text-slate-800 dark:text-white uppercase">ODD</span>
-                </div>
-                <span id="dot-odd" class="w-2 h-2 rounded-full bg-[#00a878]"></span>
-              </div>
-
-              <div id="body-odd">
-                <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                  Market: <span class="market-name-ref font-medium text-slate-700 dark:text-slate-300">Volatility 100 (1s) Index</span>
-                </p>
-                <p class="text-[10px] font-mono text-slate-400 mt-1.5">Digits: 1, 3, 5, 7, 9</p>
-              </div>
-            </div>
-
-            <button onclick="triggerCardScan('odd')" id="btn-odd" class="scan-btn w-full mt-3 py-2 px-3 rounded-xl text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition">
-              <span>⚡</span><span>Scan</span>
-            </button>
-          </div>
-
-        </div>
-
-        <!-- Section Header: CONTRACT ANALYSIS -->
-        <div class="flex items-center justify-between pt-2">
-          <h2 class="text-[11px] font-bold tracking-wider uppercase text-slate-500 dark:text-slate-400">CONTRACT ANALYSIS</h2>
-          <span class="text-[10px] font-mono text-slate-400">Hurst & Bayesian Engine</span>
-        </div>
-
-        <!-- Contract Analysis Cards: OVER/UNDER & RISE/FALL -->
-        <div class="grid grid-cols-1 gap-3">
-          <!-- OVER / UNDER CARD -->
-          <div class="app-card bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-3.5 shadow-sm">
-            <div class="flex items-center justify-between mb-2">
-              <div class="flex items-center gap-2">
-                <span class="w-6 h-6 rounded-md bg-[#00a878]/15 text-[#00a878] flex items-center justify-center font-mono text-xs font-bold">⇅</span>
-                <div>
-                  <span class="text-xs font-bold text-slate-800 dark:text-white uppercase">OVER / UNDER BARRIER</span>
-                  <p class="text-[10px] text-slate-400">Select barrier digit (0–9) for posterior probability</p>
-                </div>
-              </div>
-              <div class="flex items-center gap-1.5">
-                <span class="text-[10px] font-mono text-slate-400">BARRIER:</span>
-                <select id="barrierDigitSelect" class="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 font-mono text-xs font-bold text-[#00a878] focus:outline-none">
-                  <option value="0">0</option>
-                  <option value="1">1</option>
-                  <option value="2">2</option>
-                  <option value="3">3</option>
-                  <option value="4" selected>4</option>
-                  <option value="5">5</option>
-                  <option value="6">6</option>
-                  <option value="7">7</option>
-                  <option value="8">8</option>
-                  <option value="9">9</option>
-                </select>
-              </div>
-            </div>
-
-            <div id="body-overunder" class="my-2">
-              <div class="flex items-center justify-between text-[11px] font-mono bg-slate-50 dark:bg-slate-950/70 px-3 py-2 rounded-xl border border-slate-200/70 dark:border-slate-800">
-                <span class="text-slate-500">Market: <strong class="market-name-ref text-slate-700 dark:text-slate-300">Volatility 100 (1s) Index</strong></span>
-                <span class="text-[#00a878] font-semibold">Ready</span>
-              </div>
-            </div>
-
-            <button onclick="triggerCardScan('overunder')" id="btn-overunder" class="scan-btn w-full py-2 px-3 rounded-xl text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition">
-              <span>⚡</span><span>Scan Over / Under</span>
-            </button>
-          </div>
-
-          <!-- RISE / FALL CARD -->
-          <div class="app-card bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-3.5 shadow-sm">
-            <div class="flex items-center justify-between mb-2">
-              <div class="flex items-center gap-2">
-                <span class="w-6 h-6 rounded-md bg-[#00a878]/15 text-[#00a878] flex items-center justify-center font-mono text-xs font-bold">📈</span>
-                <div>
-                  <span class="text-xs font-bold text-slate-800 dark:text-white uppercase">RISE / FALL MOMENTUM</span>
-                  <p class="text-[10px] text-slate-400">Hurst exponent (R/S) + Bollinger Z-Score direction</p>
-                </div>
-              </div>
-              <span class="w-2 h-2 rounded-full bg-[#00a878]"></span>
-            </div>
-
-            <div id="body-risefall" class="my-2">
-              <div class="flex items-center justify-between text-[11px] font-mono bg-slate-50 dark:bg-slate-950/70 px-3 py-2 rounded-xl border border-slate-200/70 dark:border-slate-800">
-                <span class="text-slate-500">Regime: <strong id="quickHurstBadge" class="text-slate-700 dark:text-slate-300">Calibrating...</strong></span>
-                <span id="quickZBadge" class="text-[#00a878] font-semibold">Z: 0.00σ</span>
-              </div>
-            </div>
-
-            <button onclick="triggerCardScan('risefall')" id="btn-risefall" class="scan-btn w-full py-2 px-3 rounded-xl text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition">
-              <span>⚡</span><span>Scan Rise / Fall</span>
-            </button>
-          </div>
-        </div>
-
-      </div>
-
-      <!-- =================================================================== -->
-      <!-- TAB 2: MARKETS VIEW (Live Deriv WebSocket Stream & Tick Tape)       -->
-      <!-- =================================================================== -->
-      <div id="tab-markets" class="hidden space-y-4">
-        <div class="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-3.5 shadow-sm">
-          <div class="flex items-center justify-between mb-2">
-            <div>
-              <h3 class="text-xs font-bold uppercase text-slate-800 dark:text-white">Live Deriv WebSocket Stream</h3>
-              <p class="text-[10px] text-slate-400">Real-time ticks + 2σ Bollinger Envelope</p>
-            </div>
-            <span id="wsLatencyPill" class="px-2 py-0.5 rounded-full bg-emerald-500/10 text-[#00a878] font-mono text-[10px] font-semibold">24 ms</span>
-          </div>
-
-          <div class="w-full h-48 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200/80 dark:border-slate-800 overflow-hidden">
-            <canvas id="mobileChartCanvas"></canvas>
-          </div>
-        </div>
-
-        <!-- Live Tick Tape -->
-        <div class="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-3.5 shadow-sm">
-          <div class="flex items-center justify-between mb-2">
-            <h3 class="text-xs font-bold uppercase text-slate-800 dark:text-white">Real-Time Tick Feed</h3>
-            <span class="text-[10px] font-mono text-slate-400">LATEST 15 TICKS</span>
-          </div>
-          <div class="grid grid-cols-4 text-[10px] font-mono text-slate-400 pb-1.5 border-b border-slate-100 dark:border-slate-800">
-            <span>TIME</span>
-            <span class="text-right">QUOTE</span>
-            <span class="text-center">DIGIT</span>
-            <span class="text-right">MOVE</span>
-          </div>
-          <div id="mobileTickTape" class="divide-y divide-slate-100 dark:divide-slate-800/70 font-mono text-xs max-h-56 overflow-y-auto">
-            <!-- Populated dynamically -->
-          </div>
-        </div>
-      </div>
-
-      <!-- =================================================================== -->
-      <!-- TAB 3: ANALYSIS VIEW (OIsis Pro Prediction & Statistical Engine)    -->
-      <!-- =================================================================== -->
-      <div id="tab-analysis" class="hidden space-y-4">
-        <!-- 0-9 Digit Frequency Bar Chart -->
-        <div class="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-3.5 shadow-sm">
-          <div class="flex items-center justify-between mb-1">
-            <h3 class="text-xs font-bold uppercase text-slate-800 dark:text-white">0–9 Digit Distribution</h3>
-            <span id="chiSquarePill" class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">χ² = 0.00</span>
-          </div>
-          <p class="text-[10px] text-slate-400 mb-3">Hot (green) & Cold (rose) digit clustering over rolling window</p>
-
-          <div id="digitBarsGrid" class="grid grid-cols-10 gap-1.5 items-end h-32 pt-4 pb-1 px-1 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200/70 dark:border-slate-800">
-            <!-- Populated via JS -->
-          </div>
-
-          <div class="flex items-center justify-between mt-2.5 text-[11px] font-mono">
-            <span>Hot: <strong id="analysisHotDigit" class="text-[#00a878]">-</strong></span>
-            <span>Cold: <strong id="analysisColdDigit" class="text-rose-500">-</strong></span>
-          </div>
-        </div>
-
-        <!-- Statistical Metrics 2x2 Grid -->
-        <div class="grid grid-cols-2 gap-3 font-mono">
-          <div class="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-3 shadow-sm">
-            <div class="text-[10px] text-slate-400">HURST EXPONENT</div>
-            <div id="analysisHurstVal" class="text-base font-bold text-slate-800 dark:text-white mt-0.5">0.500</div>
-            <div id="analysisHurstState" class="text-[10px] text-[#00a878] mt-0.5">Random Walk</div>
-          </div>
-
-          <div class="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-3 shadow-sm">
-            <div class="text-[10px] text-slate-400">SHANNON ENTROPY</div>
-            <div id="analysisEntropyVal" class="text-base font-bold text-slate-800 dark:text-white mt-0.5">1.000</div>
-            <div class="text-[10px] text-slate-400 mt-0.5">Bits (Max 1.0)</div>
-          </div>
-
-          <div class="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-3 shadow-sm">
-            <div class="text-[10px] text-slate-400">BAYESIAN EVEN / ODD</div>
-            <div id="analysisParityVal" class="text-sm font-bold text-[#00a878] mt-0.5">50% / 50%</div>
-            <div class="text-[10px] text-slate-400 mt-0.5">Dirichlet Posterior</div>
-          </div>
-
-          <div class="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-3 shadow-sm">
-            <div class="text-[10px] text-slate-400">BOLLINGER Z-SCORE</div>
-            <div id="analysisZVal" class="text-base font-bold text-slate-800 dark:text-white mt-0.5">0.00σ</div>
-            <div class="text-[10px] text-slate-400 mt-0.5">20-Tick Band</div>
-          </div>
-        </div>
-
-        <!-- 1,000-Path Monte Carlo Simulation Box -->
-        <div class="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-3.5 shadow-sm">
-          <div class="flex items-center justify-between mb-2">
-            <div>
-              <h3 class="text-xs font-bold uppercase text-slate-800 dark:text-white">Monte Carlo 10-Tick Forecast</h3>
-              <p class="text-[10px] text-slate-400">1,000 stochastic GBM paths</p>
-            </div>
-            <button onclick="runMonteCarloUI()" class="px-2.5 py-1 rounded-lg bg-[#00a878]/15 text-[#00a878] text-[11px] font-mono font-semibold hover:bg-[#00a878]/25">
-              ↻ Run
-            </button>
-          </div>
-          <div class="space-y-1.5 text-xs font-mono bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-200/70 dark:border-slate-800">
-            <div class="flex justify-between"><span class="text-slate-400">95% Upper Bound:</span><span id="mcHighText" class="text-[#00a878] font-bold">---.--</span></div>
-            <div class="flex justify-between"><span class="text-slate-400">Expected Median:</span><span id="mcMidText" class="text-slate-800 dark:text-white font-bold">---.--</span></div>
-            <div class="flex justify-between"><span class="text-slate-400">95% Lower Bound:</span><span id="mcLowText" class="text-rose-500 font-bold">---.--</span></div>
-            <div class="flex justify-between pt-1 border-t border-slate-200 dark:border-slate-800"><span class="text-slate-400">P(Rise &gt; Spot):</span><span id="mcRiseProbText" class="text-[#00a878] font-bold">50.0%</span></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- =================================================================== -->
-      <!-- TAB 4: HISTORY VIEW (Scan Signal Audit Log & Outcome Verification)  -->
-      <!-- =================================================================== -->
-      <div id="tab-history" class="hidden space-y-3">
-        <div class="flex items-center justify-between">
-          <div>
-            <h2 class="text-xs font-bold uppercase text-slate-700 dark:text-slate-200">Scan Signal History</h2>
-            <p class="text-[10px] text-slate-400">Live verification against subsequent Deriv ticks</p>
-          </div>
-          <button onclick="clearScanHistory()" class="text-[11px] font-mono text-rose-500 hover:underline">Clear Log</button>
-        </div>
-
-        <div id="scanHistoryList" class="space-y-2.5">
-          <div class="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-6 text-center text-xs text-slate-400">
-            No scans executed yet. Tap <strong class="text-[#00a878]">⚡ Scan</strong> on any card in the Dashboard to generate signals.
-          </div>
-        </div>
-      </div>
-
-      <!-- =================================================================== -->
-      <!-- TAB 5: SETTINGS VIEW (OAuth 2.0 + PKCE & WebSocket OTP Config)      -->
-      <!-- =================================================================== -->
-      <div id="tab-settings" class="hidden space-y-3.5">
-        <div class="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-3.5 shadow-sm space-y-3">
-          <div class="flex items-center justify-between">
-            <div>
-              <h3 class="text-xs font-bold uppercase text-slate-800 dark:text-white">OAuth 2.0 + PKCE Security</h3>
-              <p class="text-[10px] text-slate-400">RFC 7636 S256 Authorization & WebSocket OTP</p>
-            </div>
-            <span class="px-2 py-0.5 rounded-full bg-[#00a878]/15 text-[#00a878] font-mono text-[10px] font-bold">VERIFIED</span>
-          </div>
-
-          <div class="space-y-2 font-mono text-[10px]">
-            <div class="bg-slate-50 dark:bg-slate-950 p-2 rounded-xl border border-slate-200/80 dark:border-slate-800 truncate">
-              <span class="text-slate-400 block">code_verifier (Web Crypto):</span>
-              <span id="settingsVerifier" class="text-slate-700 dark:text-slate-300">generating...</span>
-            </div>
-            <div class="bg-slate-50 dark:bg-slate-950 p-2 rounded-xl border border-slate-200/80 dark:border-slate-800 truncate">
-              <span class="text-slate-400 block">code_challenge (SHA-256):</span>
-              <span id="settingsChallenge" class="text-[#00a878] font-semibold">generating...</span>
-            </div>
-            <div class="bg-slate-50 dark:bg-slate-950 p-2 rounded-xl border border-slate-200/80 dark:border-slate-800 flex justify-between items-center">
-              <div>
-                <span class="text-slate-400 block">Authenticated WebSocket OTP:</span>
-                <span id="settingsOtp" class="text-amber-600 dark:text-amber-400 font-bold">otp_7f92b4e1</span>
-              </div>
-              <button onclick="rotatePkceCredentials()" class="px-2.5 py-1 rounded-lg bg-[#00a878] text-white font-sans font-semibold text-[11px]">
-                ↻ Rotate
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Deriv WebSocket & Sample Settings -->
-        <div class="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-3.5 shadow-sm space-y-3">
-          <h3 class="text-xs font-bold uppercase text-slate-800 dark:text-white">Deriv WebSocket & Engine Config</h3>
-
-          <div class="space-y-2.5 text-xs">
-            <div>
-              <label class="text-[11px] font-medium text-slate-500 block mb-1">Deriv App ID</label>
-              <input id="settingsAppId" type="text" value="1089" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 font-mono text-xs focus:outline-none focus:border-[#00a878]" />
-            </div>
-
-            <div>
-              <label class="text-[11px] font-medium text-slate-500 block mb-1">Optional OAuth Bearer / API Token</label>
-              <input id="settingsApiToken" type="password" placeholder="Paste Deriv token to authorize account..." class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 font-mono text-xs focus:outline-none focus:border-[#00a878]" />
-            </div>
-
-            <div>
-              <label class="text-[11px] font-medium text-slate-500 block mb-1">Statistical Rolling Tick Window</label>
-              <select id="settingsWindowSelect" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 font-mono text-xs focus:outline-none">
-                <option value="50">50 Ticks (Fast Scalp)</option>
-                <option value="100" selected>100 Ticks (Balanced)</option>
-                <option value="250">250 Ticks (Deep Statistical)</option>
-              </select>
-            </div>
-
-            <button onclick="applyConnectionSettings()" class="scan-btn w-full py-2.5 rounded-xl text-white font-semibold text-xs">
-              Save & Reconnect Deriv WebSocket
-            </button>
-          </div>
-        </div>
-      </div>
-
-    </main>
-
-    <!-- Bottom 5-Tab Navigation Bar matching reference screenshot -->
-    <nav class="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200/90 dark:border-slate-800 px-2 py-2 grid grid-cols-5 items-center sticky bottom-0 z-30">
-      <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-tab flex flex-col items-center justify-center gap-1 py-1 text-[#00a878] transition">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/>
-        </svg>
-        <span class="text-[10px] font-semibold">Dashboard</span>
-      </button>
-
-      <button onclick="switchTab('markets')" id="nav-markets" class="nav-tab flex flex-col items-center justify-center gap-1 py-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
-        </svg>
-        <span class="text-[10px] font-medium">Markets</span>
-      </button>
-
-      <button onclick="switchTab('analysis')" id="nav-analysis" class="nav-tab flex flex-col items-center justify-center gap-1 py-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M22 12h-4l-3 9L9 3l-3 9H2"/>
-        </svg>
-        <span class="text-[10px] font-medium">Analysis</span>
-      </button>
-
-      <button onclick="switchTab('history')" id="nav-history" class="nav-tab flex flex-col items-center justify-center gap-1 py-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition relative">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-        </svg>
-        <span class="text-[10px] font-medium">History</span>
-        <span id="historyBadgeCount" class="hidden absolute top-0.5 right-4 w-4 h-4 rounded-full bg-[#00a878] text-white text-[9px] font-bold flex items-center justify-center">0</span>
-      </button>
-
-      <button onclick="switchTab('settings')" id="nav-settings" class="nav-tab flex flex-col items-center justify-center gap-1 py-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
-          <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-        </svg>
-        <span class="text-[10px] font-medium">Settings</span>
-      </button>
-    </nav>
-
-    <!-- Non-blocking Toast Banner inside Mobile Shell -->
-    <div id="mobileToastContainer" class="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-1.5 w-[90%] max-w-[390px] pointer-events-none"></div>
-  </div>
-
-  <script>
-    /**
-     * OIsis Pro — Mobile-First Analysis Tool
-     * Preserves full OAuth 2.0 + PKCE (S256), Deriv WebSocket v3 live tick subscriptions,
-     * and OIsis Pro statistical engine inside the sleek reference card dashboard.
-     */
-    const MARKETS = {
-      '1HZ100V': { name: 'Volatility 100 (1s) Index', base: 1284.75, decimals: 2, vol: 0.00085 },
-      'R_100':   { name: 'Volatility 100 Index',      base: 6420.50, decimals: 2, vol: 0.00095 },
-      '1HZ75V':  { name: 'Volatility 75 (1s) Index',  base: 8410.20, decimals: 2, vol: 0.00072 },
-      'R_75':    { name: 'Volatility 75 Index',       base: 412890.40, decimals: 2, vol: 0.00075 },
-      'R_50':    { name: 'Volatility 50 Index',       base: 245.8120, decimals: 4, vol: 0.00055 },
-      'R_25':    { name: 'Volatility 25 Index',       base: 2910.450, decimals: 3, vol: 0.00035 },
-      'R_10':    { name: 'Volatility 10 Index',       base: 6945.120, decimals: 3, vol: 0.00022 }
+    const STORAGE_KEYS = {
+      appId: "personal_deriv_app_id_v1",
+      apiToken: "personal_deriv_api_token_v1"
     };
 
-    const appState = {
-      symbol: '1HZ100V',
-      windowSize: 100,
-      appId: '1089',
-      apiToken: '',
-      activeTab: 'dashboard',
-      ws: null,
-      simTimer: null,
-      ticks: [], // { epoch, quote, digit, dir }
-      cardTimers: {},
-      scanHistory: []
-    };
+    const ASSETS = [
+      { symbol: "R_10", name: "Volatility 10", decimals: 3 },
+      { symbol: "R_25", name: "Volatility 25", decimals: 3 },
+      { symbol: "R_50", name: "Volatility 50", decimals: 4 },
+      { symbol: "R_75", name: "Volatility 75", decimals: 4 },
+      { symbol: "R_100", name: "Volatility 100", decimals: 2 },
+      { symbol: "1HZ10V", name: "Volatility 10 (1s)", decimals: 2 },
+      { symbol: "1HZ25V", name: "Volatility 25 (1s)", decimals: 2 },
+      { symbol: "1HZ50V", name: "Volatility 50 (1s)", decimals: 2 },
+      { symbol: "1HZ75V", name: "Volatility 75 (1s)", decimals: 2 },
+      { symbol: "1HZ100V", name: "Volatility 100 (1s)", decimals: 2 },
+      { symbol: "JD10", name: "Jump 10", decimals: 2 },
+      { symbol: "JD25", name: "Jump 25", decimals: 2 }
+    ];
 
-    // =========================================================================
-    // TOAST NOTIFICATION (No alert())
-    // =========================================================================
-    function showToast(msg) {
-      const container = document.getElementById('mobileToastContainer');
-      const el = document.createElement('div');
-      el.className = 'bg-slate-900/95 text-white text-[11px] font-medium px-3.5 py-2.5 rounded-xl shadow-lg border border-slate-700/80 text-center transition-all duration-300';
-      el.textContent = msg;
-      container.appendChild(el);
-      setTimeout(() => {
-        el.style.opacity = '0';
-        setTimeout(() => el.remove(), 250);
-      }, 2600);
-    }
+    const SCAN_SAMPLE_SIZE = 250;
+    const MAX_TICKS = 10000;
+    const MIN_ANALYSIS_TICKS = 100;
 
-    // =========================================================================
-    // OAUTH 2.0 + PKCE (WEB CRYPTO S256)
-    // =========================================================================
-    function base64Url(buf) {
-      const bytes = new Uint8Array(buf);
-      let s = '';
-      for (let i = 0; i < bytes.byteLength; i++) s += String.fromCharCode(bytes[i]);
-      return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-    }
-
-    async function rotatePkceCredentials() {
+    function loadSavedValue(key, fallback = "") {
       try {
-        const verifierRaw = new Uint8Array(32);
-        window.crypto.getRandomValues(verifierRaw);
-        const verifier = base64Url(verifierRaw);
-        const digest = await window.crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
-        const challenge = base64Url(digest);
-        const otpHex = Array.from(verifierRaw.slice(0, 5)).map(b => b.toString(16).padStart(2, '0')).join('');
-
-        document.getElementById('settingsVerifier').textContent = verifier;
-        document.getElementById('settingsChallenge').textContent = challenge;
-        document.getElementById('settingsOtp').textContent = `otp_${otpHex}`;
-      } catch (e) {
-        console.error(e);
+        const val = window.localStorage.getItem(key);
+        return val !== null ? val : fallback;
+      } catch {
+        return fallback;
       }
     }
 
-    // =========================================================================
-    // DERIV WEBSOCKET & FALLBACK STREAM ENGINE
-    // =========================================================================
-    function getLastDigit(quote, decimals) {
-      const str = quote.toFixed(decimals);
-      return parseInt(str.charAt(str.length - 1), 10);
-    }
-
-    function seedWarmupTicks() {
-      const m = MARKETS[appState.symbol];
-      appState.ticks = [];
-      let p = m.base;
-      const now = Math.floor(Date.now() / 1000);
-      for (let i = 100; i > 0; i--) {
-        const u1 = Math.random() || 1e-7;
-        const u2 = Math.random();
-        const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
-        p = p * Math.exp(m.vol * z);
-        const quote = Number(p.toFixed(m.decimals));
-        const prev = appState.ticks.length ? appState.ticks[appState.ticks.length - 1].quote : quote;
-        appState.ticks.push({
-          epoch: now - i,
-          quote,
-          digit: getLastDigit(quote, m.decimals),
-          dir: quote > prev ? 1 : (quote < prev ? -1 : 0)
-        });
-      }
-    }
-
-    function onIncomingTick(epoch, quote) {
-      const m = MARKETS[appState.symbol];
-      const prev = appState.ticks.length ? appState.ticks[appState.ticks.length - 1].quote : quote;
-      const digit = getLastDigit(quote, m.decimals);
-      const dir = quote > prev ? 1 : (quote < prev ? -1 : 0);
-
-      appState.ticks.push({ epoch, quote, digit, dir });
-      if (appState.ticks.length > 400) appState.ticks.shift();
-
-      // Update Header Quote & Digit
-      document.getElementById('liveQuoteText').textContent = quote.toFixed(m.decimals);
-      document.getElementById('liveLastDigitBadge').textContent = digit;
-
-      // Verify any active history items against incoming ticks
-      verifyHistoryOutcomes(quote, digit);
-
-      // Refresh analytics & active tab UI
-      updateQuantitativeViews();
-      if (appState.activeTab === 'markets') {
-        renderMobileTickTape();
-        drawMobileChart();
-      }
-    }
-
-    function startFallbackSimulator() {
-      stopStreams();
-      document.getElementById('wsLiveDot').className = 'w-2.5 h-2.5 rounded-full bg-amber-400 pulse-live';
-      document.getElementById('wsLiveLabel').textContent = 'SIM';
-      if (!appState.ticks.length) seedWarmupTicks();
-
-      appState.simTimer = setInterval(() => {
-        const m = MARKETS[appState.symbol];
-        const last = appState.ticks[appState.ticks.length - 1].quote;
-        const u1 = Math.random() || 1e-7;
-        const u2 = Math.random();
-        const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
-        const nextQuote = Number((last * Math.exp(m.vol * z)).toFixed(m.decimals));
-        document.getElementById('wsLatencyPill').textContent = `${Math.floor(15 + Math.random() * 14)} ms`;
-        onIncomingTick(Math.floor(Date.now() / 1000), nextQuote);
-      }, 1000);
-    }
-
-    function connectDerivStream() {
-      stopStreams();
-      document.getElementById('wsLiveDot').className = 'w-2.5 h-2.5 rounded-full bg-amber-400 pulse-live';
-      document.getElementById('wsLiveLabel').textContent = 'SYNC';
-
-      let connected = false;
+    function saveValue(key, value) {
       try {
-        const ws = new WebSocket(`wss://ws.derivws.com/websockets/v3?app_id=${encodeURIComponent(appState.appId)}`);
-        appState.ws = ws;
-        const t0 = Date.now();
-
-        const timeout = setTimeout(() => {
-          if (!connected) {
-            try { ws.close(); } catch (_) {}
-            startFallbackSimulator();
-          }
-        }, 4200);
-
-        ws.onopen = () => {
-          connected = true;
-          clearTimeout(timeout);
-          document.getElementById('wsLiveDot').className = 'w-2.5 h-2.5 rounded-full bg-[#00a878] pulse-live';
-          document.getElementById('wsLiveLabel').textContent = 'LIVE';
-
-          if (appState.apiToken) {
-            ws.send(JSON.stringify({ authorize: appState.apiToken }));
-          }
-          ws.send(JSON.stringify({
-            ticks_history: appState.symbol,
-            adjust_start_time: 1,
-            count: 100,
-            end: 'latest',
-            style: 'ticks',
-            subscribe: 1
-          }));
-        };
-
-        ws.onmessage = (evt) => {
-          const data = JSON.parse(evt.data);
-          if (data.error) {
-            startFallbackSimulator();
-            return;
-          }
-          if (data.history && Array.isArray(data.history.prices)) {
-            const m = MARKETS[appState.symbol];
-            appState.ticks = [];
-            data.history.prices.forEach((p, idx) => {
-              const q = Number(Number(p).toFixed(m.decimals));
-              const prev = idx > 0 ? appState.ticks[idx - 1].quote : q;
-              appState.ticks.push({
-                epoch: data.history.times[idx],
-                quote: q,
-                digit: getLastDigit(q, m.decimals),
-                dir: q > prev ? 1 : (q < prev ? -1 : 0)
-              });
-            });
-            document.getElementById('wsLatencyPill').textContent = `${Math.max(14, Date.now() - t0)} ms`;
-            updateQuantitativeViews();
-            if (appState.activeTab === 'markets') {
-              renderMobileTickTape();
-              drawMobileChart();
-            }
-          }
-          if (data.tick) {
-            const m = MARKETS[appState.symbol];
-            const q = Number(Number(data.tick.quote).toFixed(m.decimals));
-            onIncomingTick(data.tick.epoch, q);
-          }
-        };
-
-        ws.onerror = () => {
-          if (!connected) {
-            clearTimeout(timeout);
-            startFallbackSimulator();
-          }
-        };
-      } catch (_) {
-        startFallbackSimulator();
+        if (value.trim()) {
+          window.localStorage.setItem(key, value.trim());
+        } else {
+          window.localStorage.removeItem(key);
+        }
+      } catch {
+        // Ignore storage errors
       }
     }
 
-    function stopStreams() {
-      if (appState.ws) {
-        try { appState.ws.onclose = null; appState.ws.close(); } catch (_) {}
-        appState.ws = null;
-      }
-      if (appState.simTimer) {
-        clearInterval(appState.simTimer);
-        appState.simTimer = null;
-      }
+    // ======================================================
+    // 2. PRICE PRECISION AND DIGIT EXTRACTION
+    // ======================================================
+
+    function formatQuote(quote, pipSize) {
+      return Number(quote).toFixed(pipSize);
     }
 
-    // =========================================================================
-    // OISIS PRO STATISTICAL ENGINE CALCULATIONS
-    // =========================================================================
-    function computeStats() {
-      const slice = appState.ticks.slice(-appState.windowSize);
-      const n = slice.length || 1;
-      const counts = new Array(10).fill(0);
-      let even = 0, rise = 0, fall = 0;
+    function makeTick(quote, epoch, pipSize) {
+      const price = Number(quote);
+      const ts = Number(epoch);
 
-      slice.forEach(t => {
-        counts[t.digit]++;
-        if (t.digit % 2 === 0) even++;
-        if (t.dir > 0) rise++;
-        else if (t.dir < 0) fall++;
-      });
-
-      let hotDigit = 0, coldDigit = 0;
-      const expected = n / 10;
-      let chiSq = 0;
-
-      for (let d = 0; d < 10; d++) {
-        chiSq += Math.pow(counts[d] - expected, 2) / expected;
-        if (counts[d] > counts[hotDigit]) hotDigit = d;
-        if (counts[d] < counts[coldDigit]) coldDigit = d;
+      if (!Number.isFinite(price) || !Number.isFinite(ts)) {
+        return null;
       }
 
-      // Bayesian smoothed probabilities
-      const evenProb = ((even + 5) / (n + 10)) * 100;
-      const oddProb = 100 - evenProb;
-      const totalDir = rise + fall;
-      const riseProb = ((rise + 5) / (totalDir + 10)) * 100;
-      const fallProb = 100 - riseProb;
-
-      // Hurst exponent (R/S) & Bollinger Z-score
-      const prices = slice.map(t => t.quote);
-      const bbSlice = prices.slice(-20);
-      const mean = bbSlice.reduce((a, b) => a + b, 0) / (bbSlice.length || 1);
-      const std = Math.sqrt(bbSlice.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / (bbSlice.length || 1)) || 1e-6;
-      const zScore = prices.length ? (prices[prices.length - 1] - mean) / std : 0;
-
-      let hurst = 0.50;
-      if (prices.length >= 20) {
-        const rets = [];
-        for (let i = 1; i < prices.length; i++) rets.push(Math.log(prices[i] / prices[i - 1]));
-        const rMean = rets.reduce((a, b) => a + b, 0) / rets.length;
-        let cum = 0, minC = Infinity, maxC = -Infinity, sq = 0;
-        rets.forEach(r => {
-          const diff = r - rMean;
-          cum += diff;
-          if (cum < minC) minC = cum;
-          if (cum > maxC) maxC = cum;
-          sq += diff * diff;
-        });
-        const rs = (maxC - minC) / (Math.sqrt(sq / rets.length) || 1e-6);
-        hurst = Math.max(0.22, Math.min(0.84, Math.log(rs) / Math.log(rets.length)));
-      }
-
-      // Shannon Entropy
-      const pUp = totalDir > 0 ? rise / totalDir : 0.5;
-      const pDn = 1 - pUp;
-      const entropy = (pUp > 0 ? -pUp * Math.log2(pUp) : 0) + (pDn > 0 ? -pDn * Math.log2(pDn) : 0);
+      const safePip = Number.isInteger(pipSize) && pipSize >= 0 ? pipSize : 2;
+      const formatted = formatQuote(price, safePip);
 
       return {
-        n, counts, hotDigit, coldDigit, chiSq,
-        evenProb, oddProb, riseProb, fallProb,
-        zScore, hurst, entropy,
-        spot: prices.length ? prices[prices.length - 1] : 0
+        price,
+        formatted,
+        digit: Number(formatted.at(-1)),
+        epoch: ts * 1000
       };
     }
 
-    // =========================================================================
-    // INTERACTIVE CARD SCANNING & RESULT EXPIRATION (Matching Reference Photo!)
-    // =========================================================================
-    function triggerCardScan(cardType) {
-      const btn = document.getElementById(`btn-${cardType}`);
-      const body = document.getElementById(`body-${cardType}`);
-      const dot = document.getElementById(`dot-${cardType}`);
+    // ======================================================
+    // 3. STATISTICAL UTILITIES
+    // ======================================================
 
-      // Clear any previous countdown for this card
-      if (appState.cardTimers[cardType]) {
-        clearInterval(appState.cardTimers[cardType]);
-      }
-
-      // Show brief scanning animation
-      btn.disabled = true;
-      btn.innerHTML = `<span class="animate-spin inline-block">◌</span><span>Scanning...</span>`;
-
-      setTimeout(() => {
-        btn.disabled = false;
-        if (dot) dot.classList.remove('hidden');
-
-        const stats = computeStats();
-        const marketName = MARKETS[appState.symbol].name;
-        let bigDisplay = '';
-        let subLabel = '';
-        let confidence = '';
-        let historySummary = '';
-        let targetSpec = {};
-
-        if (cardType === 'matches') {
-          const digit = stats.hotDigit;
-          const freqPct = ((stats.counts[digit] / stats.n) * 100).toFixed(1);
-          bigDisplay = `${digit}`;
-          subLabel = `MATCH DIGIT: ${digit}`;
-          confidence = `${freqPct}% Freq`;
-          historySummary = `Matches Digit ${digit} (${freqPct}%)`;
-          targetSpec = { type: 'matches', digit, ticksLeft: 5 };
-        } else if (cardType === 'differs') {
-          const digit = stats.coldDigit;
-          const differProb = (100 - (stats.counts[digit] / stats.n) * 100).toFixed(1);
-          bigDisplay = `${digit}`;
-          subLabel = `DIFFER DIGIT: ${digit}`;
-          confidence = `${differProb}% Edge`;
-          historySummary = `Differs Digit ${digit} (${differProb}%)`;
-          targetSpec = { type: 'differs', digit, ticksLeft: 1 };
-        } else if (cardType === 'even') {
-          const prob = Math.max(stats.evenProb, 52.4).toFixed(1);
-          bigDisplay = `EVEN`;
-          subLabel = `PARITY: 0,2,4,6,8`;
-          confidence = `${prob}% Prob`;
-          historySummary = `Even Parity (${prob}%)`;
-          targetSpec = { type: 'even', ticksLeft: 1 };
-        } else if (cardType === 'odd') {
-          const prob = Math.max(stats.oddProb, 52.1).toFixed(1);
-          bigDisplay = `ODD`;
-          subLabel = `PARITY: 1,3,5,7,9`;
-          confidence = `${prob}% Prob`;
-          historySummary = `Odd Parity (${prob}%)`;
-          targetSpec = { type: 'odd', ticksLeft: 1 };
-        } else if (cardType === 'overunder') {
-          const barrier = parseInt(document.getElementById('barrierDigitSelect').value, 10);
-          let overCount = 0;
-          for (let d = barrier + 1; d <= 9; d++) overCount += stats.counts[d];
-          let underCount = 0;
-          for (let d = 0; d < barrier; d++) underCount += stats.counts[d];
-
-          const isOver = overCount >= underCount;
-          const rawProb = ((isOver ? overCount : underCount) + 5) / (stats.n + 10) * 100;
-          bigDisplay = isOver ? `OVER ${barrier}` : `UNDER ${barrier}`;
-          subLabel = isOver ? `DIGITS ${barrier + 1}–9` : `DIGITS 0–${barrier - 1}`;
-          confidence = `${rawProb.toFixed(1)}%`;
-          historySummary = `${bigDisplay} (${rawProb.toFixed(1)}%)`;
-          targetSpec = { type: isOver ? 'over' : 'under', barrier, ticksLeft: 1 };
-        } else if (cardType === 'risefall') {
-          // Mean reversion if Z-score is extreme, otherwise follow Bayesian/Hurst drift
-          let isRise = stats.riseProb >= stats.fallProb;
-          if (stats.zScore < -1.5) isRise = true;
-          else if (stats.zScore > 1.5) isRise = false;
-
-          const prob = Math.min(68.5, Math.max(stats.riseProb, stats.fallProb) + Math.abs(stats.zScore) * 2.5).toFixed(1);
-          bigDisplay = isRise ? 'RISE ▲' : 'FALL ▼';
-          subLabel = `H=${stats.hurst.toFixed(2)} | Z=${stats.zScore.toFixed(2)}σ`;
-          confidence = `${prob}%`;
-          historySummary = `${isRise ? 'Rise' : 'Fall'} (${prob}%)`;
-          targetSpec = { type: isRise ? 'rise' : 'fall', entrySpot: stats.spot, ticksLeft: 5 };
+    function getDigitCounts(ticks) {
+      const counts = Array(10).fill(0);
+      ticks.forEach(tick => {
+        if (Number.isInteger(tick.digit) && tick.digit >= 0 && tick.digit <= 9) {
+          counts[tick.digit]++;
         }
+      });
+      return counts;
+    }
 
-        // Log scan to History tab
-        addScanToHistory(marketName, historySummary, targetSpec);
+    function getFrequencies(ticks) {
+      const counts = getDigitCounts(ticks);
+      const total = ticks.length;
+      return counts.map((count, digit) => ({
+        digit,
+        count,
+        pct: total ? (count / total) * 100 : 0
+      }));
+    }
 
-        // Render Framed Inner Result Box (matching the screenshot's card-in-card style!)
-        let secondsLeft = 15;
-        const renderResultBox = (expired = false) => {
-          const frameBg = expired
-            ? 'bg-slate-200/80 dark:bg-slate-800/90 border-slate-300 dark:border-slate-700'
-            : 'bg-[#e9f8f3] dark:bg-emerald-950/50 border-[#00a878]/40';
-          const statusText = expired
-            ? `<span class="text-[9px] font-mono font-bold tracking-wider text-slate-500 uppercase">RESULT EXPIRED</span>`
-            : `<span class="text-[9px] font-mono font-bold tracking-wider text-[#00a878] uppercase">VALID • ${secondsLeft}S</span>`;
+    function calculateChiSquare(ticks) {
+      if (!ticks.length) return null;
+      const counts = getDigitCounts(ticks);
+      const expected = ticks.length / 10;
+      return counts.reduce(
+        (sum, observed) => sum + Math.pow(observed - expected, 2) / expected,
+        0
+      );
+    }
 
-          body.innerHTML = `
-            <div class="${frameBg} border rounded-xl p-2.5 text-center transition-colors">
-              <div>${statusText}</div>
-              <div class="text-xl font-extrabold font-mono text-slate-900 dark:text-white my-0.5 tracking-tight">${bigDisplay}</div>
-              <div class="text-[10px] font-mono font-semibold text-slate-600 dark:text-slate-300">${subLabel}</div>
-              <div class="text-[9px] font-mono text-[#00a878] mt-0.5">${confidence}</div>
-            </div>
-          `;
+    function calculateEntropy(probabilities) {
+      return -probabilities.reduce((sum, p) => {
+        if (p <= 0) return sum;
+        const probability = p / 100;
+        return sum + probability * Math.log2(probability);
+      }, 0);
+    }
+
+    function summarizeMarketTicks(assetObj, ticks) {
+      const frequencies = getFrequencies(ticks);
+      const entropy = calculateEntropy(frequencies.map(f => f.pct));
+      const chiSquare = calculateChiSquare(ticks) ?? 0;
+
+      const sortedByPct = [...frequencies].sort((a, b) => b.pct - a.pct);
+      const topDigit = sortedByPct[0];
+      const bottomDigit = sortedByPct.at(-1);
+      const spreadPct = topDigit && bottomDigit ? topDigit.pct - bottomDigit.pct : 0;
+
+      return {
+        symbol: assetObj.symbol,
+        name: assetObj.name,
+        ticksCount: ticks.length,
+        entropy,
+        chiSquare,
+        topDigit: topDigit?.digit ?? null,
+        topPct: topDigit?.pct ?? 0,
+        spreadPct,
+        lastPrice: ticks.at(-1)?.formatted ?? "--",
+        lastDigit: ticks.at(-1)?.digit ?? null,
+        updatedAt: Date.now()
+      };
+    }
+
+    // ======================================================
+    // 4. MARKOV TRANSITION ANALYSIS
+    // ======================================================
+
+    function calculateMarkov(ticks, horizon = 1, alpha = 1) {
+      const digits = ticks.map(t => t.digit);
+
+      if (digits.length <= horizon) {
+        return {
+          probabilities: Array(10).fill(10),
+          observations: 0,
+          currentDigit: digits.at(-1) ?? null
         };
-
-        renderResultBox(false);
-        btn.innerHTML = `<span>↻</span><span>Scan Again</span>`;
-
-        appState.cardTimers[cardType] = setInterval(() => {
-          secondsLeft--;
-          if (secondsLeft <= 0) {
-            clearInterval(appState.cardTimers[cardType]);
-            renderResultBox(true);
-          } else {
-            renderResultBox(false);
-          }
-        }, 1000);
-      }, 320);
-    }
-
-    // =========================================================================
-    // SCAN HISTORY & LIVE TICK VERIFICATION
-    // =========================================================================
-    function addScanToHistory(marketName, signalTitle, targetSpec) {
-      appState.scanHistory.unshift({
-        id: Date.now() + Math.random(),
-        time: new Date().toLocaleTimeString([], { hour12: false }),
-        market: marketName,
-        symbol: appState.symbol,
-        signal: signalTitle,
-        status: 'ACTIVE',
-        targetSpec
-      });
-
-      if (appState.scanHistory.length > 30) appState.scanHistory.pop();
-      renderHistoryTab();
-    }
-
-    function verifyHistoryOutcomes(latestQuote, latestDigit) {
-      let updated = false;
-      appState.scanHistory.forEach(item => {
-        if (item.status !== 'ACTIVE' || item.symbol !== appState.symbol) return;
-        const spec = item.targetSpec;
-        spec.ticksLeft--;
-
-        if (spec.type === 'matches' && latestDigit === spec.digit) {
-          item.status = 'WON';
-          updated = true;
-        } else if (spec.type === 'differs') {
-          item.status = latestDigit !== spec.digit ? 'WON' : 'LOST';
-          updated = true;
-        } else if (spec.type === 'even') {
-          item.status = latestDigit % 2 === 0 ? 'WON' : 'LOST';
-          updated = true;
-        } else if (spec.type === 'odd') {
-          item.status = latestDigit % 2 !== 0 ? 'WON' : 'LOST';
-          updated = true;
-        } else if (spec.type === 'over') {
-          item.status = latestDigit > spec.barrier ? 'WON' : 'LOST';
-          updated = true;
-        } else if (spec.type === 'under') {
-          item.status = latestDigit < spec.barrier ? 'WON' : 'LOST';
-          updated = true;
-        } else if (spec.ticksLeft <= 0) {
-          if (spec.type === 'matches') item.status = 'EXPIRED';
-          else if (spec.type === 'rise') item.status = latestQuote > spec.entrySpot ? 'WON' : 'LOST';
-          else if (spec.type === 'fall') item.status = latestQuote < spec.entrySpot ? 'WON' : 'LOST';
-          updated = true;
-        }
-      });
-
-      if (updated) renderHistoryTab();
-    }
-
-    function renderHistoryTab() {
-      const badge = document.getElementById('historyBadgeCount');
-      badge.textContent = appState.scanHistory.length;
-      badge.classList.toggle('hidden', appState.scanHistory.length === 0);
-
-      const container = document.getElementById('scanHistoryList');
-      if (appState.scanHistory.length === 0) {
-        container.innerHTML = `
-          <div class="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-6 text-center text-xs text-slate-400">
-            No scans executed yet. Tap <strong class="text-[#00a878]">⚡ Scan</strong> on any card in the Dashboard to generate signals.
-          </div>`;
-        return;
       }
 
-      container.innerHTML = appState.scanHistory.map(item => {
-        let statusBadge = `<span class="px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 font-mono text-[10px] font-bold">TRACKING</span>`;
-        if (item.status === 'WON') {
-          statusBadge = `<span class="px-2 py-0.5 rounded-full bg-[#00a878]/15 text-[#00a878] font-mono text-[10px] font-bold">✓ HIT</span>`;
-        } else if (item.status === 'LOST' || item.status === 'EXPIRED') {
-          statusBadge = `<span class="px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-500 font-mono text-[10px] font-bold">${item.status}</span>`;
+      const currentDigit = digits.at(-1);
+      const counts = Array(10).fill(0);
+      let observations = 0;
+
+      for (let i = 0; i < digits.length - horizon; i++) {
+        if (digits[i] === currentDigit) {
+          counts[digits[i + horizon]]++;
+          observations++;
         }
-
-        return `
-          <div class="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-3 shadow-sm flex items-center justify-between">
-            <div>
-              <div class="text-xs font-bold text-slate-800 dark:text-white">${item.signal}</div>
-              <div class="text-[10px] text-slate-400 mt-0.5">${item.market} • <span class="font-mono">${item.time}</span></div>
-            </div>
-            ${statusBadge}
-          </div>
-        `;
-      }).join('');
-    }
-
-    function clearScanHistory() {
-      appState.scanHistory = [];
-      renderHistoryTab();
-      showToast('Scan history cleared.');
-    }
-
-    // =========================================================================
-    // ANALYSIS & MARKETS TAB RENDERERS
-    // =========================================================================
-    function updateQuantitativeViews() {
-      const stats = computeStats();
-
-      // Update Dashboard Contract quick pills
-      document.getElementById('quickHurstBadge').textContent = stats.hurst > 0.55 ? `Trend (${stats.hurst.toFixed(2)})` : (stats.hurst < 0.45 ? `Revert (${stats.hurst.toFixed(2)})` : `Walk (${stats.hurst.toFixed(2)})`);
-      document.getElementById('quickZBadge').textContent = `Z: ${stats.zScore >= 0 ? '+' : ''}${stats.zScore.toFixed(2)}σ`;
-
-      // Update Analysis Tab Metrics
-      document.getElementById('chiSquarePill').textContent = `χ² = ${stats.chiSq.toFixed(2)}`;
-      document.getElementById('analysisHotDigit').textContent = `${stats.hotDigit} (${((stats.counts[stats.hotDigit] / stats.n) * 100).toFixed(1)}%)`;
-      document.getElementById('analysisColdDigit').textContent = `${stats.coldDigit} (${((stats.counts[stats.coldDigit] / stats.n) * 100).toFixed(1)}%)`;
-      document.getElementById('analysisHurstVal').textContent = stats.hurst.toFixed(3);
-      document.getElementById('analysisHurstState').textContent = stats.hurst > 0.55 ? 'Persistent Trend' : (stats.hurst < 0.45 ? 'Mean-Reverting' : 'Brownian Walk');
-      document.getElementById('analysisEntropyVal').textContent = stats.entropy.toFixed(3);
-      document.getElementById('analysisParityVal').textContent = `${stats.evenProb.toFixed(0)}% / ${stats.oddProb.toFixed(0)}%`;
-      document.getElementById('analysisZVal').textContent = `${stats.zScore >= 0 ? '+' : ''}${stats.zScore.toFixed(2)}σ`;
-
-      // Render 0-9 Bars
-      const maxC = Math.max(...stats.counts, 1);
-      const barsGrid = document.getElementById('digitBarsGrid');
-      barsGrid.innerHTML = stats.counts.map((c, d) => {
-        const pct = ((c / stats.n) * 100).toFixed(0);
-        const h = Math.max(14, Math.round((c / maxC) * 100));
-        let bg = 'bg-slate-300 dark:bg-slate-700';
-        if (d === stats.hotDigit) bg = 'bg-[#00a878]';
-        else if (d === stats.coldDigit) bg = 'bg-rose-500';
-        return `
-          <div class="flex flex-col items-center justify-end h-full">
-            <span class="text-[8px] font-mono text-slate-400 mb-0.5">${pct}%</span>
-            <div class="w-full ${bg} rounded-t transition-all duration-300" style="height:${h}%"></div>
-            <span class="text-[10px] font-mono font-bold text-slate-600 dark:text-slate-300 mt-1">${d}</span>
-          </div>
-        `;
-      }).join('');
-    }
-
-    function runMonteCarloUI() {
-      const m = MARKETS[appState.symbol];
-      const prices = appState.ticks.slice(-appState.windowSize).map(t => t.quote);
-      if (prices.length < 10) return;
-
-      const rets = [];
-      for (let i = 1; i < prices.length; i++) rets.push(Math.log(prices[i] / prices[i - 1]));
-      const meanR = rets.reduce((a, b) => a + b, 0) / rets.length;
-      const varR = rets.reduce((a, b) => a + Math.pow(b - meanR, 2), 0) / rets.length;
-      const sig = Math.sqrt(varR) || 0.0005;
-      const spot = prices[prices.length - 1];
-
-      const finals = [];
-      let above = 0;
-      for (let p = 0; p < 1000; p++) {
-        let s = spot;
-        for (let t = 0; t < 10; t++) {
-          const u1 = Math.random() || 1e-7;
-          const u2 = Math.random();
-          const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
-          s = s * Math.exp((meanR - 0.5 * varR) + sig * z);
-        }
-        finals.push(s);
-        if (s > spot) above++;
       }
-      finals.sort((a, b) => a - b);
 
-      document.getElementById('mcHighText').textContent = finals[950].toFixed(m.decimals);
-      document.getElementById('mcMidText').textContent = finals[500].toFixed(m.decimals);
-      document.getElementById('mcLowText').textContent = finals[50].toFixed(m.decimals);
-      document.getElementById('mcRiseProbText').textContent = `${(above / 10).toFixed(1)}%`;
+      const denominator = observations + 10 * alpha;
+      const probabilities = counts.map(count => ((count + alpha) / denominator) * 100);
+
+      return {
+        probabilities,
+        observations,
+        currentDigit
+      };
     }
 
-    function renderMobileTickTape() {
-      const m = MARKETS[appState.symbol];
-      const recent = appState.ticks.slice(-15).reverse();
-      document.getElementById('mobileTickTape').innerHTML = recent.map(t => {
-        const ts = new Date(t.epoch * 1000).toLocaleTimeString([], { hour12: false });
-        const arrow = t.dir > 0 ? '<span class="text-[#00a878]">▲</span>' : (t.dir < 0 ? '<span class="text-rose-500">▼</span>' : '•');
-        return `
-          <div class="grid grid-cols-4 py-1.5 items-center">
-            <span class="text-slate-400 text-[10px]">${ts}</span>
-            <span class="text-right font-semibold text-slate-700 dark:text-slate-200">${t.quote.toFixed(m.decimals)}</span>
-            <span class="text-center"><span class="px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-[#00a878] font-bold">${t.digit}</span></span>
-            <span class="text-right text-[10px]">${arrow}</span>
-          </div>
-        `;
-      }).join('');
-    }
+    // ======================================================
+    // 5. QUANTITATIVE ANALYSIS ENGINE
+    // ======================================================
 
-    function drawMobileChart() {
-      const canvas = document.getElementById('mobileChartCanvas');
-      if (!canvas) return;
-      const rect = canvas.parentElement.getBoundingClientRect();
-      if (rect.width === 0) return;
-      const dpr = window.devicePixelRatio || 1;
-      canvas.width = rect.width * dpr;
-      canvas.height = rect.height * dpr;
-      const ctx = canvas.getContext('2d');
-      ctx.scale(dpr, dpr);
+    function runAnalysis({ ticks, duration, contractType, subMode, barrier }) {
+      if (ticks.length < MIN_ANALYSIS_TICKS) {
+        return { error: `At least ${MIN_ANALYSIS_TICKS} real ticks are required.` };
+      }
 
-      const w = rect.width, h = rect.height;
-      ctx.clearRect(0, 0, w, h);
+      const recent = ticks.slice(-100);
+      const global = getFrequencies(ticks);
+      const recentFreq = getFrequencies(recent);
+      const markov = calculateMarkov(ticks, duration);
 
-      const slice = appState.ticks.slice(-45);
-      if (slice.length < 2) return;
-      const prices = slice.map(t => t.quote);
-      const minV = Math.min(...prices);
-      const maxV = Math.max(...prices);
-      const pad = (maxV - minV) * 0.15 || 0.01;
-      const lo = minV - pad, hi = maxV + pad;
+      const scores = global.map((item, i) => ({
+        digit: item.digit,
+        globalPct: item.pct,
+        recentPct: recentFreq[i].pct,
+        markovPct: markov.probabilities[i],
+        score: item.pct * 0.2 + recentFreq[i].pct * 0.3 + markov.probabilities[i] * 0.5
+      }));
 
-      const getX = i => 10 + (i / (prices.length - 1)) * (w - 20);
-      const getY = v => 14 + (1 - (v - lo) / (hi - lo)) * (h - 28);
+      const scoreTotal = scores.reduce((s, x) => s + x.score, 0);
+      const normalized = scores.map(x => ({
+        ...x,
+        probability: scoreTotal > 0 ? (x.score / scoreTotal) * 100 : 10
+      }));
 
-      // Area gradient
-      const grad = ctx.createLinearGradient(0, 10, 0, h);
-      grad.addColorStop(0, 'rgba(0, 168, 120, 0.22)');
-      grad.addColorStop(1, 'rgba(0, 168, 120, 0.0)');
+      const sorted = [...normalized].sort((a, b) => b.probability - a.probability);
+      const highest = sorted[0];
 
-      ctx.beginPath();
-      prices.forEach((v, i) => i === 0 ? ctx.moveTo(getX(i), getY(v)) : ctx.lineTo(getX(i), getY(v)));
-      ctx.strokeStyle = '#00a878';
-      ctx.lineWidth = 2;
-      ctx.stroke();
+      let primaryDisplay = "";
+      let headline = "";
+      let probability = 0;
+      let recommendedParam = "";
+      let badgeLabel = "";
 
-      ctx.lineTo(getX(prices.length - 1), h - 10);
-      ctx.lineTo(getX(0), h - 10);
-      ctx.closePath();
-      ctx.fillStyle = grad;
-      ctx.fill();
-
-      // Latest point dot
-      const lastX = getX(prices.length - 1);
-      const lastY = getY(prices[prices.length - 1]);
-      ctx.fillStyle = '#00a878';
-      ctx.beginPath();
-      ctx.arc(lastX, lastY, 4, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    // =========================================================================
-    // NAVIGATION, MARKET SWITCHING & THEME CONTROLS
-    // =========================================================================
-    function switchTab(tabName) {
-      appState.activeTab = tabName;
-      ['dashboard', 'markets', 'analysis', 'history', 'settings'].forEach(t => {
-        document.getElementById(`tab-${t}`).classList.toggle('hidden', t !== tabName);
-        const navBtn = document.getElementById(`nav-${t}`);
-        if (t === tabName) {
-          navBtn.className = 'nav-tab flex flex-col items-center justify-center gap-1 py-1 text-[#00a878] transition relative';
+      if (contractType === "matches_differs") {
+        if (subMode === "MATCHES") {
+          primaryDisplay = String(highest.digit);
+          probability = highest.probability;
+          badgeLabel = "MATCHES";
+          headline = `Most favoured digit: ${highest.digit}`;
+          recommendedParam = `Matches ${highest.digit}`;
         } else {
-          navBtn.className = 'nav-tab flex flex-col items-center justify-center gap-1 py-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition relative';
+          primaryDisplay = String(highest.digit);
+          probability = 100 - highest.probability;
+          badgeLabel = "DIFFERS";
+          headline = `Differ from the most likely digit: ${highest.digit}`;
+          recommendedParam = `Differs ${highest.digit}`;
         }
-      });
-
-      // Show market selector bar on Dashboard, Markets, and Analysis tabs
-      const showMarketBar = ['dashboard', 'markets', 'analysis'].includes(tabName);
-      document.getElementById('marketSelectorBlock').classList.toggle('hidden', !showMarketBar);
-
-      if (tabName === 'markets') {
-        renderMobileTickTape();
-        setTimeout(drawMobileChart, 30);
-      } else if (tabName === 'analysis') {
-        updateQuantitativeViews();
-        runMonteCarloUI();
       }
+
+      if (contractType === "even_odd") {
+        const evenProbability = normalized
+          .filter(x => x.digit % 2 === 0)
+          .reduce((sum, x) => sum + x.probability, 0);
+        const oddProbability = 100 - evenProbability;
+        const even = subMode === "EVEN";
+
+        primaryDisplay = even ? "EVEN" : "ODD";
+        probability = even ? evenProbability : oddProbability;
+        badgeLabel = "PARITY";
+        headline = `${even ? "Even" : "Odd"} probability estimate`;
+        recommendedParam = even ? "Even" : "Odd";
+      }
+
+      if (contractType === "over_under") {
+        const isOver = subMode === "OVER";
+        const selected = normalized.filter(x =>
+          isOver ? x.digit > barrier : x.digit < barrier
+        );
+        probability = selected.reduce((sum, x) => sum + x.probability, 0);
+        primaryDisplay = `${isOver ? "OVER" : "UNDER"} ${barrier}`;
+        badgeLabel = "RANGE";
+        headline = `${primaryDisplay} probability estimate`;
+        recommendedParam = primaryDisplay;
+      }
+
+      if (contractType === "rise_fall") {
+        const prices = ticks.map(t => t.price);
+        const fast = prices.slice(-6);
+        const slow = prices.slice(-24);
+        const fastMean = fast.reduce((a, b) => a + b, 0) / fast.length;
+        const slowMean = slow.reduce((a, b) => a + b, 0) / slow.length;
+        const isRise = fastMean >= slowMean;
+
+        primaryDisplay = isRise ? "RISE" : "FALL";
+        badgeLabel = "DIRECTION";
+        headline = "Moving-average direction indicator";
+        recommendedParam = primaryDisplay;
+        probability = null;
+      }
+
+      const frequencies = global;
+      const chiSquare = calculateChiSquare(ticks);
+      const entropy = calculateEntropy(frequencies.map(x => x.pct));
+
+      return {
+        primaryDisplay,
+        headline,
+        badgeLabel,
+        probability,
+        recommendedParam,
+        frequencies,
+        chiSquare,
+        entropy,
+        sampleSize: ticks.length,
+        recentSize: recent.length,
+        transitionObservations: markov.observations,
+        currentDigit: markov.currentDigit,
+        sorted,
+        markovProbabilities: markov.probabilities
+      };
     }
 
-    function applyConnectionSettings() {
-      appState.appId = document.getElementById('settingsAppId').value.trim() || '1089';
-      appState.apiToken = document.getElementById('settingsApiToken').value.trim();
-      appState.windowSize = parseInt(document.getElementById('settingsWindowSelect').value, 10);
-      document.getElementById('sampleWindowBadge').textContent = `Sample: ${appState.windowSize} ticks`;
-      connectDerivStream();
-      showToast('Settings applied & WebSocket reconnected.');
-      switchTab('dashboard');
-    }
+    // ======================================================
+    // 6. MAIN APPLICATION
+    // ======================================================
 
-    document.getElementById('marketSelect').addEventListener('change', (e) => {
-      appState.symbol = e.target.value;
-      const m = MARKETS[appState.symbol];
-      document.getElementById('symbolCodeText').textContent = appState.symbol;
-      document.querySelectorAll('.market-name-ref').forEach(el => el.textContent = m.name);
+    function App() {
+      const [appId, setAppId] = useState(() => loadSavedValue(STORAGE_KEYS.appId, ""));
+      const [apiToken, setApiToken] = useState(() => loadSavedValue(STORAGE_KEYS.apiToken, ""));
+      const [authStatus, setAuthStatus] = useState("NONE");
 
-      // Reset active scan cards to idle state for new market
-      ['matches', 'differs', 'even', 'odd'].forEach(type => {
-        if (appState.cardTimers[type]) clearInterval(appState.cardTimers[type]);
-        document.getElementById(`btn-${type}`).innerHTML = `<span>⚡</span><span>Scan</span>`;
-        const hint = type === 'matches' ? 'Target: High-Cluster Digit'
-          : type === 'differs' ? 'Target: Coldest Anomaly'
-          : type === 'even' ? 'Digits: 0, 2, 4, 6, 8' : 'Digits: 1, 3, 5, 7, 9';
-        document.getElementById(`body-${type}`).innerHTML = `
-          <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-            Market: <span class="market-name-ref font-medium text-slate-700 dark:text-slate-300">${m.name}</span>
-          </p>
-          <p class="text-[10px] font-mono text-slate-400 mt-1.5">${hint}</p>
-        `;
+      const [selectedSymbol, setSelectedSymbol] = useState("R_100");
+      const [status, setStatus] = useState("DISCONNECTED");
+      const [error, setError] = useState("");
+      const [ticks, setTicks] = useState([]);
+      const [pipSize, setPipSize] = useState(2);
+      const [latency, setLatency] = useState(null);
+
+      const [duration, setDuration] = useState(1);
+      const [contractType, setContractType] = useState("matches_differs");
+      const [subMode, setSubMode] = useState("MATCHES");
+      const [barrier, setBarrier] = useState(4);
+
+      const [result, setResult] = useState(null);
+      const [windowSize, setWindowSize] = useState(1000);
+      const [copied, setCopied] = useState(false);
+
+      const [showCredentialsPanel, setShowCredentialsPanel] = useState(
+        () => !loadSavedValue(STORAGE_KEYS.appId, "").trim()
+      );
+
+      const [scanRankMetric, setScanRankMetric] = useState("chiSquare");
+      const [isScanningMarkets, setIsScanningMarkets] = useState(false);
+      const [scanProgress, setScanProgress] = useState({
+        current: 0,
+        total: ASSETS.length,
+        symbol: ""
       });
+      const [scanRowsBySymbol, setScanRowsBySymbol] = useState({});
+      const [scanError, setScanError] = useState("");
 
-      seedWarmupTicks();
-      updateQuantitativeViews();
-      runMonteCarloUI();
-      connectDerivStream();
-      showToast(`Switched to ${m.name}`);
-    });
+      const [liveTrackEnabled, setLiveTrackEnabled] = useState(false);
+      const [liveTrackStatus, setLiveTrackStatus] = useState("IDLE");
+      const [autoRefreshSec, setAutoRefreshSec] = useState(0);
+      const [liveTickCount, setLiveTickCount] = useState(0);
 
-    document.getElementById('headerAuthBtn').addEventListener('click', () => switchTab('settings'));
+      const [isProcessingAnalysis, setIsProcessingAnalysis] = useState(false);
+      const [analysisProgress, setAnalysisProgress] = useState(0);
 
-    document.getElementById('themeToggleBtn').addEventListener('click', () => {
-      const html = document.documentElement;
-      const isDark = html.classList.toggle('dark');
-      document.getElementById('moonIcon').classList.toggle('hidden', isDark);
-      document.getElementById('sunIcon').classList.toggle('hidden', !isDark);
-      if (appState.activeTab === 'markets') drawMobileChart();
-    });
+      const wsRef = useRef(null);
+      const subscriptionRef = useRef(null);
+      const requestTimeRef = useRef(null);
+      const activeRef = useRef(false);
+      const connectionIdRef = useRef(0);
+      const analysisTimerRef = useRef(null);
+      const pipSizeRef = useRef(2);
+      const assetDecimalsRef = useRef(2);
 
-    window.addEventListener('DOMContentLoaded', async () => {
-      await rotatePkceCredentials();
-      seedWarmupTicks();
-      updateQuantitativeViews();
-      runMonteCarloUI();
-      connectDerivStream();
-    });
+      const scanWsRef = useRef(null);
+      const scanSubscriptionsRef = useRef(new Map());
+      const scanTicksMapRef = useRef(new Map());
+      const scanPipMapRef = useRef(new Map());
+      const pendingScanResolversRef = useRef(new Map());
+      const scanAbortRef = useRef(false);
+
+      const asset = useMemo(
+        () => ASSETS.find(a => a.symbol === selectedSymbol) || ASSETS[0],
+        [selectedSymbol]
+      );
+
+      useEffect(() => {
+        assetDecimalsRef.current = asset.decimals;
+      }, [asset.decimals]);
+
+      useEffect(() => {
+        pipSizeRef.current = pipSize;
+      }, [pipSize]);
+
+      const latestTick = ticks.at(-1);
+
+      const stopLiveScannerStream = useCallback(() => {
+        const sws = scanWsRef.current;
+        scanWsRef.current = null;
+
+        if (sws && sws.readyState === WebSocket.OPEN) {
+          scanSubscriptionsRef.current.forEach(subId => {
+            if (subId) sws.send(JSON.stringify({ forget: subId }));
+          });
+          sws.close();
+        }
+
+        scanSubscriptionsRef.current.clear();
+        setLiveTrackStatus("IDLE");
+      }, []);
+
+      useEffect(() => {
+        return () => {
+          scanAbortRef.current = true;
+          stopLiveScannerStream();
+          pendingScanResolversRef.current.forEach(({ reject, timer }) => {
+            clearTimeout(timer);
+            reject(new Error("Unmounted"));
+          });
+          pendingScanResolversRef.current.clear();
+          if (analysisTimerRef.current) clearInterval(analysisTimerRef.current);
+        };
+      }, [stopLiveScannerStream]);
+
+      const disconnect = useCallback(() => {
+        activeRef.current = false;
+        connectionIdRef.current++;
+
+        if (wsRef.current) {
+          const ws = wsRef.current;
+          wsRef.current = null;
+          if (ws.readyState === WebSocket.OPEN) {
+            if (subscriptionRef.current) {
+              ws.send(JSON.stringify({ forget: subscriptionRef.current }));
+            }
+            ws.close();
+          }
+        }
+
+        subscriptionRef.current = null;
+        setStatus("DISCONNECTED");
+      }, []);
+
+      const connectWithCredentials = useCallback(
+        (rawAppId, rawToken, symbolToSub, countToSub) => {
+          disconnect();
+
+          const id = connectionIdRef.current;
+          const cleanAppId = (rawAppId ?? appId).trim();
+          const cleanToken = (rawToken ?? apiToken).trim();
+
+          if (!/^\d+$/.test(cleanAppId)) {
+            setShowCredentialsPanel(true);
+            setError("Enter your personal numeric Deriv App ID first to connect.");
+            return;
+          }
+
+          saveValue(STORAGE_KEYS.appId, cleanAppId);
+          saveValue(STORAGE_KEYS.apiToken, cleanToken);
+
+          setError("");
+          setAuthStatus("NONE");
+          setTicks([]);
+          setResult(null);
+          setStatus("CONNECTING");
+          activeRef.current = true;
+
+          let ws;
+          try {
+            ws = new WebSocket(`${WS_BASE_URL}?app_id=${encodeURIComponent(cleanAppId)}`);
+          } catch (err) {
+            setStatus("DISCONNECTED");
+            setError(err.message || "Unable to create WebSocket.");
+            return;
+          }
+
+          wsRef.current = ws;
+
+          ws.onopen = () => {
+            if (!activeRef.current || id !== connectionIdRef.current) {
+              ws.close();
+              return;
+            }
+
+            setStatus("LIVE");
+
+            if (cleanToken) {
+              ws.send(JSON.stringify({ authorize: cleanToken, req_id: "auth_main" }));
+            }
+
+            ws.send(
+              JSON.stringify({
+                ticks_history: symbolToSub,
+                count: countToSub,
+                end: "latest",
+                style: "ticks",
+                subscribe: 1,
+                req_id: "stream_main"
+              })
+            );
+
+            requestTimeRef.current = performance.now();
+          };
+
+          ws.onmessage = event => {
+            if (!activeRef.current || id !== connectionIdRef.current) return;
+
+            try {
+              const data = JSON.parse(event.data);
+
+              if (data.error) {
+                if (data.msg_type === "authorize") setAuthStatus("FAILED");
+                setError(`${data.error.code || "API_ERROR"}: ${data.error.message}`);
+                setStatus("ERROR");
+                return;
+              }
+
+              if (data.msg_type === "authorize" && data.authorize) {
+                setAuthStatus("AUTHORIZED");
+              }
+
+              if (data.msg_type === "history" && data.history) {
+                const precision = Number.isInteger(data.pip_size)
+                  ? data.pip_size
+                  : assetDecimalsRef.current;
+
+                setPipSize(precision);
+                pipSizeRef.current = precision;
+
+                const historyTicks = data.history.prices
+                  .map((price, index) => makeTick(price, data.history.times[index], precision))
+                  .filter(Boolean);
+
+                setTicks(historyTicks.slice(-MAX_TICKS));
+
+                if (data.subscription?.id) {
+                  subscriptionRef.current = data.subscription.id;
+                }
+              }
+
+              if (data.msg_type === "tick" && data.tick) {
+                const precision = Number.isInteger(data.tick.pip_size)
+                  ? data.tick.pip_size
+                  : pipSizeRef.current;
+
+                setPipSize(precision);
+                pipSizeRef.current = precision;
+
+                const tick = makeTick(data.tick.quote, data.tick.epoch, precision);
+                if (!tick) return;
+
+                if (requestTimeRef.current !== null) {
+                  setLatency(Math.round(performance.now() - requestTimeRef.current));
+                  requestTimeRef.current = null;
+                }
+
+                if (data.subscription?.id) {
+                  subscriptionRef.current = data.subscription.id;
+                }
+
+                setTicks(previous => {
+                  const last = previous.at(-1);
+                  if (last && last.epoch === tick.epoch) return previous;
+                  return [...previous, tick].slice(-MAX_TICKS);
+                });
+              }
+            } catch (err) {
+              setError(`Message processing error: ${err.message}`);
+            }
+          };
+
+          ws.onerror = () => {
+            if (id === connectionIdRef.current) {
+              setError("WebSocket network error. Check your App ID and connection.");
+            }
+          };
+
+          ws.onclose = () => {
+            if (id === connectionIdRef.current) {
+              setStatus("DISCONNECTED");
+              subscriptionRef.current = null;
+            }
+          };
+        },
+        [appId, apiToken, disconnect]
+      );
+
+      useEffect(() => {
+        if (!appId.trim()) return;
+        connectWithCredentials(appId, apiToken, selectedSymbol, windowSize);
+        return () => disconnect();
+      }, [selectedSymbol, windowSize]);
+
+      const handleScannerLiveMessage = useCallback(event => {
+        try {
+          const data = JSON.parse(event.data);
+
+          if (
+            typeof data.req_id === "string" &&
+            pendingScanResolversRef.current.has(data.req_id)
+          ) {
+            const pending = pendingScanResolversRef.current.get(data.req_id);
+            pendingScanResolversRef.current.delete(data.req_id);
+            clearTimeout(pending.timer);
+            if (data.error) {
+              pending.reject(new Error(data.error.message || "Scan history error"));
+            } else {
+              pending.resolve(data);
+            }
+            return;
+          }
+
+          if (data.error) return;
+
+          if (
+            data.msg_type === "history" &&
+            typeof data.req_id === "string" &&
+            data.req_id.startsWith("live_seed_")
+          ) {
+            const symbol = data.req_id.replace("live_seed_", "");
+            const assetObj = ASSETS.find(a => a.symbol === symbol);
+            if (!assetObj) return;
+
+            const precision = Number.isInteger(data.pip_size)
+              ? data.pip_size
+              : assetObj.decimals;
+            scanPipMapRef.current.set(symbol, precision);
+
+            if (data.subscription?.id) {
+              scanSubscriptionsRef.current.set(symbol, data.subscription.id);
+            }
+
+            const seeded = (data.history?.prices || [])
+              .map((price, idx) => makeTick(price, data.history.times?.[idx], precision))
+              .filter(Boolean)
+              .slice(-SCAN_SAMPLE_SIZE);
+
+            scanTicksMapRef.current.set(symbol, seeded);
+
+            if (seeded.length >= 20) {
+              setScanRowsBySymbol(prev => ({
+                ...prev,
+                [symbol]: summarizeMarketTicks(assetObj, seeded)
+              }));
+            }
+          }
+
+          if (data.msg_type === "tick" && data.tick) {
+            const symbol = data.tick.symbol;
+            const assetObj = ASSETS.find(a => a.symbol === symbol);
+            if (!assetObj) return;
+
+            if (data.subscription?.id) {
+              scanSubscriptionsRef.current.set(symbol, data.subscription.id);
+            }
+
+            const precision = Number.isInteger(data.tick.pip_size)
+              ? data.tick.pip_size
+              : scanPipMapRef.current.get(symbol) ?? assetObj.decimals;
+            scanPipMapRef.current.set(symbol, precision);
+
+            const newTick = makeTick(data.tick.quote, data.tick.epoch, precision);
+            if (!newTick) return;
+
+            const existing = scanTicksMapRef.current.get(symbol) || [];
+            const last = existing.at(-1);
+            if (last && last.epoch === newTick.epoch) return;
+
+            const nextBuffer = [...existing, newTick].slice(-SCAN_SAMPLE_SIZE);
+            scanTicksMapRef.current.set(symbol, nextBuffer);
+            setLiveTickCount(c => c + 1);
+
+            if (nextBuffer.length >= 20) {
+              setScanRowsBySymbol(prev => ({
+                ...prev,
+                [symbol]: summarizeMarketTicks(assetObj, nextBuffer)
+              }));
+            }
+          }
+        } catch {
+          // Ignore malformed frames
+        }
+      }, []);
+
+      const startLiveScannerStream = useCallback(async () => {
+        const cleanAppId = appId.trim();
+        if (!/^\d+$/.test(cleanAppId)) {
+          setShowCredentialsPanel(true);
+          setScanError("Enter a valid personal numeric App ID for live tracking.");
+          setLiveTrackEnabled(false);
+          return;
+        }
+
+        stopLiveScannerStream();
+        setScanError("");
+        setLiveTrackStatus("CONNECTING");
+
+        try {
+          const socket = await new Promise((resolve, reject) => {
+            const ws = new WebSocket(`${WS_BASE_URL}?app_id=${encodeURIComponent(cleanAppId)}`);
+            const timer = setTimeout(() => {
+              ws.close();
+              reject(new Error("Live scanner connection timed out."));
+            }, 7000);
+            ws.onopen = () => {
+              clearTimeout(timer);
+              resolve(ws);
+            };
+            ws.onerror = () => {
+              clearTimeout(timer);
+              reject(new Error("Failed to open live scanner WebSocket."));
+            };
+          });
+
+          scanWsRef.current = socket;
+          socket.onmessage = handleScannerLiveMessage;
+          socket.onclose = () => {
+            if (scanWsRef.current === socket) {
+              scanWsRef.current = null;
+              setLiveTrackStatus("IDLE");
+            }
+          };
+
+          setLiveTrackStatus("STREAMING");
+
+          ASSETS.forEach((a, idx) => {
+            setTimeout(() => {
+              if (socket.readyState === WebSocket.OPEN) {
+                socket.send(
+                  JSON.stringify({
+                    ticks_history: a.symbol,
+                    count: SCAN_SAMPLE_SIZE,
+                    end: "latest",
+                    style: "ticks",
+                    subscribe: 1,
+                    req_id: `live_seed_${a.symbol}`
+                  })
+                );
+              }
+            }, idx * 70);
+          });
+        } catch (err) {
+          setScanError(err.message);
+          setLiveTrackStatus("IDLE");
+          setLiveTrackEnabled(false);
+        }
+      }, [appId, handleScannerLiveMessage, stopLiveScannerStream]);
+
+      useEffect(() => {
+        if (liveTrackEnabled) {
+          startLiveScannerStream();
+        } else {
+          stopLiveScannerStream();
+        }
+        return () => stopLiveScannerStream();
+      }, [liveTrackEnabled, startLiveScannerStream, stopLiveScannerStream]);
+
+      const fetchMarketHistorySnapshot = useCallback((targetAsset, reqId, socketOverride) => {
+        return new Promise((resolve, reject) => {
+          const timer = setTimeout(() => {
+            pendingScanResolversRef.current.delete(reqId);
+            reject(new Error(`Timeout fetching ${targetAsset.symbol}`));
+          }, 7000);
+
+          const payload = JSON.stringify({
+            ticks_history: targetAsset.symbol,
+            count: SCAN_SAMPLE_SIZE,
+            end: "latest",
+            style: "ticks",
+            req_id: reqId
+          });
+
+          const targetSocket =
+            socketOverride ||
+            (scanWsRef.current && scanWsRef.current.readyState === WebSocket.OPEN
+              ? scanWsRef.current
+              : null);
+
+          if (targetSocket) {
+            const onMsg = event => {
+              try {
+                const data = JSON.parse(event.data);
+                if (data.req_id !== reqId) return;
+                targetSocket.removeEventListener("message", onMsg);
+                clearTimeout(timer);
+                if (data.error) {
+                  reject(new Error(data.error.message || "API error"));
+                } else {
+                  resolve(data);
+                }
+              } catch (e) {
+                reject(e);
+              }
+            };
+            targetSocket.addEventListener("message", onMsg);
+            targetSocket.send(payload);
+            return;
+          }
+
+          clearTimeout(timer);
+          reject(new Error("No scanner socket available"));
+        });
+      }, []);
+
+      const runLiveMarketScan = useCallback(
+        async (autoSelectBest = false, silentRefresh = false) => {
+          if (isScanningMarkets) return;
+
+          const cleanAppId = appId.trim();
+          if (!/^\d+$/.test(cleanAppId)) {
+            if (!silentRefresh) {
+              setShowCredentialsPanel(true);
+              setScanError("Enter a valid personal numeric App ID before scanning.");
+            }
+            return;
+          }
+
+          scanAbortRef.current = false;
+          if (!silentRefresh) {
+            setScanError("");
+            setIsScanningMarkets(true);
+            setScanProgress({ current: 0, total: ASSETS.length, symbol: ASSETS[0].symbol });
+          }
+
+          let tempSocket = null;
+          const hasLiveScanSocket =
+            scanWsRef.current && scanWsRef.current.readyState === WebSocket.OPEN;
+
+          if (!hasLiveScanSocket) {
+            try {
+              tempSocket = await new Promise((resolve, reject) => {
+                const socket = new WebSocket(`${WS_BASE_URL}?app_id=${encodeURIComponent(cleanAppId)}`);
+                const t = setTimeout(() => {
+                  socket.close();
+                  reject(new Error("Connection timed out while scanning."));
+                }, 7000);
+                socket.onopen = () => {
+                  clearTimeout(t);
+                  resolve(socket);
+                };
+                socket.onerror = () => {
+                  clearTimeout(t);
+                  reject(new Error("Failed to open WebSocket for scan."));
+                };
+              });
+            } catch (err) {
+              if (!silentRefresh) {
+                setIsScanningMarkets(false);
+                setScanError(err.message);
+              }
+              return;
+            }
+          }
+
+          const batchUpdates = {};
+
+          for (let i = 0; i < ASSETS.length; i++) {
+            if (scanAbortRef.current) break;
+            const currentAsset = ASSETS[i];
+            if (!silentRefresh) {
+              setScanProgress({
+                current: i + 1,
+                total: ASSETS.length,
+                symbol: currentAsset.symbol
+              });
+            }
+
+            try {
+              const response = await fetchMarketHistorySnapshot(
+                currentAsset,
+                `snap_${i}_${Date.now()}`,
+                tempSocket
+              );
+
+              const precision = Number.isInteger(response.pip_size)
+                ? response.pip_size
+                : currentAsset.decimals;
+
+              const parsedTicks = (response.history?.prices || [])
+                .map((price, idx) => makeTick(price, response.history.times?.[idx], precision))
+                .filter(Boolean);
+
+              if (parsedTicks.length >= 20) {
+                scanTicksMapRef.current.set(
+                  currentAsset.symbol,
+                  parsedTicks.slice(-SCAN_SAMPLE_SIZE)
+                );
+                batchUpdates[currentAsset.symbol] = summarizeMarketTicks(currentAsset, parsedTicks);
+              } else {
+                batchUpdates[currentAsset.symbol] = {
+                  symbol: currentAsset.symbol,
+                  name: currentAsset.name,
+                  ticksCount: parsedTicks.length,
+                  entropy: null,
+                  chiSquare: null,
+                  error: "Insufficient ticks"
+                };
+              }
+            } catch (err) {
+              batchUpdates[currentAsset.symbol] = {
+                symbol: currentAsset.symbol,
+                name: currentAsset.name,
+                ticksCount: 0,
+                entropy: null,
+                chiSquare: null,
+                error: err.message
+              };
+            }
+
+            await new Promise(r => setTimeout(r, 110));
+          }
+
+          if (tempSocket && tempSocket.readyState === WebSocket.OPEN) {
+            tempSocket.close();
+          }
+
+          setScanRowsBySymbol(prev => ({ ...prev, ...batchUpdates }));
+          if (!silentRefresh) setIsScanningMarkets(false);
+
+          if (autoSelectBest) {
+            const valid = Object.values(batchUpdates).filter(
+              r => !r.error && r.chiSquare !== null
+            );
+            valid.sort((a, b) =>
+              scanRankMetric === "entropy" ? b.entropy - a.entropy : b.chiSquare - a.chiSquare
+            );
+            if (valid[0]) {
+              setSelectedSymbol(valid[0].symbol);
+              setResult(null);
+            }
+          }
+        },
+        [appId, fetchMarketHistorySnapshot, isScanningMarkets, scanRankMetric]
+      );
+
+      useEffect(() => {
+        if (!autoRefreshSec || !appId.trim()) return;
+        const interval = setInterval(() => {
+          if (!isScanningMarkets) runLiveMarketScan(false, true);
+        }, autoRefreshSec * 1000);
+        return () => clearInterval(interval);
+      }, [autoRefreshSec, appId, isScanningMarkets, runLiveMarketScan]);
+
+      const rankedScanResults = useMemo(() => {
+        const allRows = Object.values(scanRowsBySymbol);
+        if (!allRows.length) return [];
+        const valid = allRows.filter(r => !r.error && r.chiSquare !== null);
+        const invalid = allRows.filter(r => r.error || r.chiSquare === null);
+        valid.sort((a, b) =>
+          scanRankMetric === "entropy" ? b.entropy - a.entropy : b.chiSquare - a.chiSquare
+        );
+        return [...valid, ...invalid];
+      }, [scanRowsBySymbol, scanRankMetric]);
+
+      const executeAnalysis = () => {
+        if (status !== "LIVE") {
+          setError("Connect with your personal App ID before running analysis.");
+          return;
+        }
+        if (ticks.length < MIN_ANALYSIS_TICKS) {
+          setError(`Collect at least ${MIN_ANALYSIS_TICKS} real ticks first.`);
+          return;
+        }
+        if (analysisTimerRef.current) clearInterval(analysisTimerRef.current);
+
+        setIsProcessingAnalysis(true);
+        setAnalysisProgress(18);
+
+        let progress = 18;
+        analysisTimerRef.current = setInterval(() => {
+          progress += 28;
+          if (progress >= 100) {
+            clearInterval(analysisTimerRef.current);
+            setAnalysisProgress(100);
+            const analysis = runAnalysis({
+              ticks: ticks.slice(-windowSize),
+              duration,
+              contractType,
+              subMode,
+              barrier
+            });
+            setResult(analysis);
+            setIsProcessingAnalysis(false);
+            setError(analysis.error || "");
+          } else {
+            setAnalysisProgress(progress);
+          }
+        }, 110);
+      };
+
+      const copyResult = async () => {
+        if (!result || result.error) return;
+        const text = [
+          "Personal Deriv Tick Analyzer",
+          `Market: ${asset.name} (${asset.symbol})`,
+          `Signal: ${result.primaryDisplay}`,
+          `Type: ${result.badgeLabel}`,
+          `Estimated probability: ${
+            result.probability === null ? "Not calculated" : result.probability.toFixed(2) + "%"
+          }`,
+          `Samples: ${result.sampleSize}`,
+          `Chi-square: ${result.chiSquare.toFixed(3)}`
+        ].join("\n");
+
+        try {
+          await navigator.clipboard.writeText(text);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1800);
+        } catch {
+          setError("Clipboard access failed.");
+        }
+      };
+
+      const lastDigits = ticks.slice(-10);
+      const formattedPrefix = latestTick ? latestTick.formatted.slice(0, -1) : "--.";
+      const formattedFinalDigit = latestTick ? latestTick.formatted.slice(-1) : "-";
+
+      return (
+        <div className="min-h-screen pb-12">
+          <header className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200">
+            <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between gap-2">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h1 className="font-extrabold text-base sm:text-lg tracking-tight text-slate-900">
+                    Personal Tick Analyzer
+                  </h1>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
+                    PERSONAL APP ID
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  Local Credentials • Live Multi-Market Scanner
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border ${
+                    status === "LIVE"
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                      : status === "CONNECTING"
+                      ? "bg-amber-50 text-amber-700 border-amber-200"
+                      : "bg-rose-50 text-rose-700 border-rose-200"
+                  }`}
+                >
+                  <span
+                    className={`w-2 h-2 rounded-full ${
+                      status === "LIVE" ? "bg-emerald-500 animate-pulse" : "bg-rose-500"
+                    }`}
+                  />
+                  {status}
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() => setShowCredentialsPanel(p => !p)}
+                  className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 cursor-pointer"
+                >
+                  App ID
+                </button>
+              </div>
+            </div>
+
+            {showCredentialsPanel && (
+              <div className="border-t border-slate-100 bg-slate-50 px-4 py-3.5">
+                <div className="max-w-2xl mx-auto space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="block text-[11px] font-bold uppercase text-slate-600 mb-1">
+                        Personal Deriv App ID (Required)
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={appId}
+                        onChange={e => setAppId(e.target.value)}
+                        placeholder="Enter your numeric App ID"
+                        className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-sm font-mono font-semibold outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="flex items-center justify-between text-[11px] font-bold uppercase text-slate-600 mb-1">
+                        <span>Personal API Token (Optional)</span>
+                        {authStatus === "AUTHORIZED" && (
+                          <span className="text-emerald-700">AUTH OK</span>
+                        )}
+                      </label>
+                      <input
+                        type="password"
+                        autoComplete="off"
+                        value={apiToken}
+                        onChange={e => setApiToken(e.target.value)}
+                        placeholder="Optional Deriv API token"
+                        className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-sm font-mono font-semibold outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    {(appId || apiToken) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          disconnect();
+                          stopLiveScannerStream();
+                          setLiveTrackEnabled(false);
+                          setAppId("");
+                          setApiToken("");
+                          saveValue(STORAGE_KEYS.appId, "");
+                          saveValue(STORAGE_KEYS.apiToken, "");
+                        }}
+                        className="px-3 py-2 rounded-xl bg-white text-rose-600 border border-rose-200 text-xs font-bold cursor-pointer"
+                      >
+                        Clear
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        connectWithCredentials(appId, apiToken, selectedSymbol, windowSize)
+                      }
+                      className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold cursor-pointer"
+                    >
+                      Save &amp; Connect
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </header>
+
+          <main className="max-w-2xl mx-auto px-3 sm:px-4 pt-4 space-y-4">
+            {error && (
+              <div className="bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl p-3.5 text-xs sm:text-sm font-medium">
+                {error}
+              </div>
+            )}
+
+            {/* MULTI-MARKET SCANNER */}
+            <section className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs space-y-4">
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="text-xs font-extrabold uppercase tracking-wider text-slate-700">
+                  Live Multi-Market Scanner ({SCAN_SAMPLE_SIZE} Ticks / Asset)
+                </h2>
+                <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-600 border border-rose-200">
+                  {liveTrackStatus === "STREAMING" ? "LIVE TRACKING" : "REAL TICK QUERY"}
+                </span>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-[11px] font-bold uppercase text-slate-500">Rank By:</span>
+                <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200">
+                  <button
+                    type="button"
+                    onClick={() => setScanRankMetric("chiSquare")}
+                    className={`px-3 py-1 rounded-lg text-xs font-extrabold cursor-pointer ${
+                      scanRankMetric === "chiSquare" ? "bg-slate-900 text-white" : "text-slate-600"
+                    }`}
+                  >
+                    Chi-Square
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setScanRankMetric("entropy")}
+                    className={`px-3 py-1 rounded-lg text-xs font-extrabold cursor-pointer ${
+                      scanRankMetric === "entropy" ? "bg-slate-900 text-white" : "text-slate-600"
+                    }`}
+                  >
+                    Entropy
+                  </button>
+                </div>
+              </div>
+
+              <div className="rounded-xl bg-slate-50 border border-slate-200 p-3 flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setLiveTrackEnabled(p => !p)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-extrabold border cursor-pointer ${
+                      liveTrackEnabled
+                        ? "bg-emerald-600 text-white border-emerald-600"
+                        : "bg-white text-slate-700 border-slate-300"
+                    }`}
+                  >
+                    {liveTrackEnabled ? "Stop Live Ticks" : "Live Track Ticks"}
+                  </button>
+                  {liveTrackEnabled && (
+                    <span className="text-[11px] font-mono font-bold text-emerald-700">
+                      {liveTrackStatus === "CONNECTING"
+                        ? "Connecting..."
+                        : `${liveTickCount.toLocaleString()} live ticks`}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-bold uppercase text-slate-500">Refresh:</span>
+                  {[
+                    { label: "Off", sec: 0 },
+                    { label: "10s", sec: 10 },
+                    { label: "30s", sec: 30 }
+                  ].map(opt => (
+                    <button
+                      key={opt.sec}
+                      type="button"
+                      onClick={() => setAutoRefreshSec(opt.sec)}
+                      className={`px-2 py-1 rounded-md text-[11px] font-bold border cursor-pointer ${
+                        autoRefreshSec === opt.sec
+                          ? "bg-slate-900 text-white border-slate-900"
+                          : "bg-white text-slate-600 border-slate-200"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold uppercase text-slate-500 mb-1">
+                  Active Market
+                </label>
+                <select
+                  value={selectedSymbol}
+                  onChange={e => {
+                    setSelectedSymbol(e.target.value);
+                    setResult(null);
+                  }}
+                  className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm font-bold text-slate-800 outline-none focus:border-rose-500"
+                >
+                  {ASSETS.map(a => (
+                    <option key={a.symbol} value={a.symbol}>
+                      {a.name} Index ({a.symbol})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => runLiveMarketScan(false, false)}
+                  disabled={isScanningMarkets}
+                  className="py-3 px-4 rounded-xl bg-rose-500 hover:bg-rose-600 disabled:opacity-70 text-white font-extrabold text-xs sm:text-sm cursor-pointer"
+                >
+                  {isScanningMarkets
+                    ? `SCANNING ${scanProgress.symbol} (${scanProgress.current}/${scanProgress.total})...`
+                    : "SCAN ALL MARKETS"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => runLiveMarketScan(true, false)}
+                  disabled={isScanningMarkets}
+                  className="py-3 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 disabled:opacity-60 text-white font-extrabold text-xs sm:text-sm cursor-pointer"
+                >
+                  SCAN &amp; SELECT TOP
+                </button>
+              </div>
+
+              {scanError && (
+                <p className="text-xs font-semibold text-rose-600 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2">
+                  {scanError}
+                </p>
+              )}
+
+              {rankedScanResults.length > 0 && (
+                <div className="rounded-xl border border-slate-200 overflow-hidden">
+                  <div className="px-3 py-2 bg-slate-100 border-b border-slate-200 flex items-center justify-between text-[11px] font-bold text-slate-600">
+                    <span>Max Entropy = 3.322b • χ² &gt; 16.92 (p&lt;0.05)</span>
+                    <span>{rankedScanResults.length} markets</span>
+                  </div>
+                  <div className="divide-y divide-slate-200 max-h-72 overflow-y-auto">
+                    {rankedScanResults.map((row, idx) => {
+                      const isCurrent = row.symbol === selectedSymbol;
+                      return (
+                        <div
+                          key={row.symbol}
+                          className={`px-3 py-2.5 flex items-center justify-between gap-2 text-xs ${
+                            isCurrent ? "bg-emerald-50/70" : "bg-white"
+                          }`}
+                        >
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100">
+                                #{idx + 1}
+                              </span>
+                              <span className="font-extrabold text-slate-900 truncate">
+                                {row.name}
+                              </span>
+                              <span className="font-mono text-[11px] text-slate-400">
+                                ({row.symbol})
+                              </span>
+                              {row.lastDigit !== null && (
+                                <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                  D:{row.lastDigit}
+                                </span>
+                              )}
+                            </div>
+                            {row.error ? (
+                              <p className="text-[11px] text-rose-600 mt-0.5">{row.error}</p>
+                            ) : (
+                              <div className="flex flex-wrap gap-3 mt-1 text-[11px] text-slate-600">
+                                <span>
+                                  <strong className="text-slate-900">
+                                    χ²: {row.chiSquare.toFixed(2)}
+                                  </strong>
+                                </span>
+                                <span>
+                                  Entropy:{" "}
+                                  <strong className="text-slate-900">
+                                    {row.entropy.toFixed(3)}b
+                                  </strong>
+                                </span>
+                                <span>
+                                  Top:{" "}
+                                  <strong className="font-mono text-indigo-700">
+                                    {row.topDigit} ({row.topPct.toFixed(1)}%)
+                                  </strong>
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedSymbol(row.symbol);
+                              setResult(null);
+                            }}
+                            className={`shrink-0 px-2.5 py-1.5 rounded-lg text-[11px] font-extrabold cursor-pointer ${
+                              isCurrent
+                                ? "bg-emerald-600 text-white"
+                                : "bg-slate-100 hover:bg-slate-200 text-slate-800"
+                            }`}
+                          >
+                            {isCurrent ? "Selected" : "Use"}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </section>
+
+            {/* LIVE SPOT TICKER */}
+            <section className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs space-y-4">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-[10px] font-extrabold uppercase text-slate-400">
+                    Live Spot Ticker
+                  </p>
+                  <h2 className="text-sm font-extrabold text-slate-900">
+                    {asset.name} Index ({asset.symbol})
+                  </h2>
+                </div>
+                <span className="px-2.5 py-1 rounded-full text-xs font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  LAST DIGIT: {latestTick?.digit ?? "--"}
+                </span>
+              </div>
+
+              <div className="rounded-xl bg-slate-50 border border-slate-200 py-5 px-4 text-center">
+                <div className="text-3xl sm:text-5xl font-black font-mono tracking-tight text-slate-900">
+                  <span>{formattedPrefix}</span>
+                  <span className="inline-block ml-0.5 px-2 py-0.5 rounded-lg bg-emerald-500/15 text-emerald-600 border border-emerald-500/30">
+                    {formattedFinalDigit}
+                  </span>
+                </div>
+                <div className="mt-3 flex justify-center gap-3 text-xs text-slate-500">
+                  <span>
+                    <strong className="text-slate-800">{ticks.length.toLocaleString()}</strong> ticks
+                  </span>
+                  <span>•</span>
+                  <span>Latency: {latency !== null ? `${latency}ms` : "--"}</span>
+                  <span>•</span>
+                  <span>App ID: {appId.trim() ? `#${appId.trim()}` : "NOT SET"}</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-10 gap-1.5">
+                {Array.from({ length: 10 }).map((_, idx) => {
+                  const tick = lastDigits[idx];
+                  const isLatest = tick && idx === lastDigits.length - 1;
+                  if (!tick) {
+                    return (
+                      <div
+                        key={`e-${idx}`}
+                        className="rounded-lg py-2 text-center font-mono text-xs font-bold bg-slate-100 text-slate-400"
+                      >
+                        -
+                      </div>
+                    );
+                  }
+                  return (
+                    <div
+                      key={`${tick.epoch}-${idx}`}
+                      className={`rounded-lg py-2 text-center font-mono text-sm font-black ${
+                        isLatest
+                          ? "bg-emerald-500 text-white"
+                          : tick.digit % 2 === 0
+                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                          : "bg-rose-50 text-rose-700 border border-rose-200"
+                      }`}
+                    >
+                      {tick.digit}
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+
+            {/* CONTRACT & ANALYSIS CONTROLS */}
+            <section className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-extrabold uppercase text-slate-700">
+                  Duration (Ticks)
+                </span>
+                <div className="flex gap-1.5">
+                  {[1, 2, 3, 4, 5].map(n => (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => setDuration(n)}
+                      className={`w-8 h-8 rounded-lg text-xs font-black border cursor-pointer ${
+                        duration === n
+                          ? "bg-emerald-600 text-white border-emerald-600"
+                          : "bg-slate-50 text-slate-700 border-slate-200"
+                      }`}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {[
+                  { id: "matches_differs", label: "Matches/Differs" },
+                  { id: "even_odd", label: "Even/Odd" },
+                  { id: "over_under", label: "Over/Under" },
+                  { id: "rise_fall", label: "Rise/Fall" }
+                ].map(c => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => {
+                      setContractType(c.id);
+                      if (c.id === "matches_differs") setSubMode("MATCHES");
+                      if (c.id === "even_odd") setSubMode("EVEN");
+                      if (c.id === "over_under") setSubMode("OVER");
+                      setResult(null);
+                    }}
+                    className={`py-2 px-2.5 rounded-xl text-xs font-extrabold border cursor-pointer ${
+                      contractType === c.id
+                        ? "bg-indigo-600 text-white border-indigo-600"
+                        : "bg-slate-50 text-slate-700 border-slate-200"
+                    }`}
+                  >
+                    {c.label}
+                  </button>
+                ))}
+              </div>
+
+              {contractType === "matches_differs" && (
+                <div className="flex gap-2">
+                  {["MATCHES", "DIFFERS"].map(m => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => {
+                        setSubMode(m);
+                        setResult(null);
+                      }}
+                      className={`flex-1 py-2 rounded-lg text-xs font-extrabold border cursor-pointer ${
+                        subMode === m
+                          ? "bg-slate-900 text-white border-slate-900"
+                          : "bg-white text-slate-600 border-slate-200"
+                      }`}
+                    >
+                      {m}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {contractType === "even_odd" && (
+                <div className="flex gap-2">
+                  {["EVEN", "ODD"].map(m => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => {
+                        setSubMode(m);
+                        setResult(null);
+                      }}
+                      className={`flex-1 py-2 rounded-lg text-xs font-extrabold border cursor-pointer ${
+                        subMode === m
+                          ? "bg-slate-900 text-white border-slate-900"
+                          : "bg-white text-slate-600 border-slate-200"
+                      }`}
+                    >
+                      {m}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {contractType === "over_under" && (
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    {["OVER", "UNDER"].map(m => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => {
+                          setSubMode(m);
+                          setResult(null);
+                        }}
+                        className={`flex-1 py-2 rounded-lg text-xs font-extrabold border cursor-pointer ${
+                          subMode === m
+                            ? "bg-slate-900 text-white border-slate-900"
+                            : "bg-white text-slate-600 border-slate-200"
+                        }`}
+                      >
+                        {m}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="bg-slate-50 rounded-xl p-3 border border-slate-200">
+                    <div className="flex justify-between text-xs font-bold mb-1">
+                      <span>Barrier Digit</span>
+                      <span className="font-mono text-indigo-700">{barrier}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="9"
+                      value={barrier}
+                      onChange={e => {
+                        setBarrier(Number(e.target.value));
+                        setResult(null);
+                      }}
+                      className="w-full accent-indigo-600 cursor-pointer"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={executeAnalysis}
+                disabled={status !== "LIVE" || ticks.length < MIN_ANALYSIS_TICKS || isProcessingAnalysis}
+                className="w-full py-3.5 px-5 rounded-xl bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-200 disabled:text-slate-400 text-white font-black text-sm cursor-pointer"
+              >
+                {isProcessingAnalysis
+                  ? `ANALYZING (${analysisProgress}%)...`
+                  : ticks.length < MIN_ANALYSIS_TICKS
+                  ? `NEED ${MIN_ANALYSIS_TICKS - ticks.length} MORE TICKS`
+                  : "EXECUTE ANALYSIS"}
+              </button>
+            </section>
+
+            {/* RESULT CARD */}
+            {result && !result.error && !isProcessingAnalysis && (
+              <section className="bg-white border-2 border-emerald-500/40 rounded-2xl p-4 sm:p-5 shadow-md space-y-4">
+                <div className="rounded-2xl bg-slate-900 text-white p-5 text-center space-y-2">
+                  <span className="text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full bg-white/10 text-slate-300">
+                    MODEL OUTPUT • {result.badgeLabel}
+                  </span>
+                  <div className="text-4xl sm:text-5xl font-black text-amber-400">
+                    {result.primaryDisplay}
+                  </div>
+                  <p className="text-sm font-semibold text-slate-200">{result.headline}</p>
+                  {result.probability !== null ? (
+                    <span className="inline-block px-3 py-1 rounded-full text-sm font-black bg-emerald-500/20 text-emerald-400">
+                      {result.probability.toFixed(2)}%
+                    </span>
+                  ) : (
+                    <span className="inline-block px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300">
+                      Indicator only (no probability)
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+                    <p className="text-[10px] font-bold uppercase text-slate-500">Chi-Square</p>
+                    <p className="text-base font-black text-slate-900">{result.chiSquare.toFixed(2)}</p>
+                  </div>
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+                    <p className="text-[10px] font-bold uppercase text-slate-500">Entropy</p>
+                    <p className="text-base font-black text-slate-900">{result.entropy.toFixed(3)}b</p>
+                  </div>
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+                    <p className="text-[10px] font-bold uppercase text-slate-500">Markov Obs</p>
+                    <p className="text-base font-black text-slate-900">{result.transitionObservations}</p>
+                  </div>
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+                    <p className="text-[10px] font-bold uppercase text-slate-500">Samples</p>
+                    <p className="text-base font-black text-slate-900">{result.sampleSize}</p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={copyResult}
+                  className="w-full py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm font-bold cursor-pointer"
+                >
+                  {copied ? "Copied to Clipboard" : "Copy Analysis Summary"}
+                </button>
+              </section>
+            )}
+          </main>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
   </script>
 </body>
 </html>
-```
